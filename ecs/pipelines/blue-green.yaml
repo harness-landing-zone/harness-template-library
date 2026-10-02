@@ -1,0 +1,169 @@
+template:
+  name: ECS Blue Green Delivery
+  identifier: ecs_blue_green_delivery
+  versionLabel: 0.1.0
+  type: Pipeline
+  orgIdentifier: template_factory
+  projectIdentifier: Experian_Demo_Templates
+  description: Platform-owned Dev, Staging, approval, Prod and release-result lifecycle. Service/artifact selected in Dev.
+  tags:
+    owner: platform
+    status: candidate
+  spec:
+    allowStageExecutions: false
+    stages:
+    - stage:
+        name: Dev ECS
+        identifier: Dev
+        template:
+          templateRef: ecs_blue_green_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                serviceRef: <+input>
+                serviceInputs: <+input>
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Application_Validation
+                    steps: <+input>
+                - insert:
+                    identifier: Live_Validation
+                    steps: <+input>
+    - stage:
+        name: Staging ECS
+        identifier: Staging
+        template:
+          templateRef: ecs_blue_green_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Application_Validation
+                    steps: <+input>
+                - insert:
+                    identifier: Live_Validation
+                    steps: <+input>
+    - stage:
+        name: Production approval
+        identifier: Approve_Prod
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Require successful lower environments
+                identifier: Check_Lower_Environments
+                template:
+                  templateRef: ecs_require_success
+                  versionLabel: 0.1.0
+                  templateInputs:
+                    type: ShellScript
+                    spec:
+                      environmentVariables:
+                      - name: REQUIRED_STATUSES
+                        type: String
+                        value: <+pipeline.stages.Dev.status> <+pipeline.stages.Staging.status>
+                      - name: EXPECTED_COUNT
+                        type: String
+                        value: '2'
+            - step:
+                name: Approve production deployment
+                identifier: Production_Approval
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Approve the release validated in Dev and Staging. Review the service, immutable artifact,
+                    target and deployment strategy.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.developer_leads
+                    - account.platform_team
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: All
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Prod ECS
+        identifier: Prod
+        template:
+          templateRef: ecs_blue_green_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Application_Validation
+                    steps: <+input>
+                - insert:
+                    identifier: Live_Validation
+                    steps: <+input>
+    - stage:
+        name: Release result
+        identifier: Complete_Release
+        type: Custom
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Require successful release
+                identifier: Check_Release_Result
+                template:
+                  templateRef: ecs_require_success
+                  versionLabel: 0.1.0
+                  templateInputs:
+                    type: ShellScript
+                    spec:
+                      environmentVariables:
+                      - name: REQUIRED_STATUSES
+                        type: String
+                        value: <+pipeline.stages.Dev.status> <+pipeline.stages.Staging.status> <+pipeline.stages.Approve_Prod.status>
+                          <+pipeline.stages.Approve_Prod.spec.execution.steps.Production_Approval.status> <+pipeline.stages.Prod.status>
+                      - name: EXPECTED_COUNT
+                        type: String
+                        value: '5'
+        when:
+          pipelineStatus: All
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: MarkAsFailure
