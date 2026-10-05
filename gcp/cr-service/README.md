@@ -1,6 +1,10 @@
 # Tiny Cloud Run test
 
-[Dockerfile](Dockerfile) packages [index.html](index.html) in Python Alpine. Python's built-in HTTP server listens on `0.0.0.0:8080` and serves **Hello from Cloud Run**. This server is for this test only; it has no database, dependencies to install, or Google API calls. The base-image tag receives updates; the CI scan gates the image built on each run.
+[Dockerfile](Dockerfile) packages a small Java 21 application built with Maven. It uses the JDK HTTP server, listens on `PORT` (default `8080`), and provides `/` (Hello, World!), `/health` (OK), and a 404 for unknown routes. The runtime has no third-party dependencies; this is a demonstration service.
+
+Six JUnit 5 tests cover greeting logic and actual HTTP responses. Run `mvn test` in this directory; Surefire writes JUnit XML to `target/surefire-reports`. Harness's native **Test** step runs those tests with Test Intelligence enabled and uploads those reports to the execution's **Tests** tab.
+
+Push these Java files before running CI. The first successful run establishes the Test Intelligence baseline. Then change `Greeting.java`, push, and rerun the same branch to demonstrate selection; selected tests depend on the recorded call graph. Triggers are not required for manual branch runs.
 
 [service.yaml](service.yaml) tells Cloud Run how to run that image. CI checks out this repository and builds this directory. The Harness service fetches the manifest from Git at the commit supplied to CD; use the same commit as the successful CI build.
 

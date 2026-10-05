@@ -1,16 +1,16 @@
 # Generic GCP pipelines and a small test
 
-Both pipelines and both input sets are saved in `bau_payments / GCP_Project`. Harness read-back reports valid YAML. **No build or deployment has run yet.** These are pipeline candidates; reusable templates follow execution verification.
+Both pipelines and both input sets are saved in `bau_payments / GCP_Project`. Harness read-back reports valid YAML. These are pipeline candidates; reusable templates follow execution verification.
 
 ## Run the example
 
 Open **GCP GAR Build Scan Push** and select input set **Hello Cloud Run - build and push** (`hello_build_deploy`). Review before running. One run performs:
 
 ```text
-Checkout → Gitleaks → Checkov → Web smoke tests → Build → Trivy → Push to GAR
+Checkout → Gitleaks → Checkov → JUnit + Test Intelligence → Build → Trivy → Push to GAR
 ```
 
-CI stops after push. Build triggers and automatic CD chaining are deferred until the two pipelines have been tested separately. Gitleaks scans the latest commit with redacted output; it is not a full-history audit. Checkov scans the build-context directory for Dockerfile/IaC issues. For this demonstration, all three scanners use `fail_on_severity: none`: findings remain visible in STO but do not block push. Scanner execution errors still fail. Restore severity gates before production use. The input set supplies two source-level HTTP smoke checks (homepage content and missing-page 404); these do not test the built container or deployed service.
+CI stops after push. Build triggers and automatic CD chaining are deferred until the two pipelines have been tested separately. Gitleaks scans the latest commit with redacted output; it is not a full-history audit. Checkov scans the build-context directory for Dockerfile/IaC issues. For this demonstration, all three scanners use `fail_on_severity: none`: findings remain visible in STO but do not block push. Scanner execution errors still fail. Restore severity gates before production use. The input set supplies a Maven Java 21 test image, command, test glob and Surefire report path. Six JUnit tests exercise greeting logic and local HTTP responses; the native Test step enables Test Intelligence and publishes results to the Tests tab. These tests do not test the built container or deployed service.
 
 The [test input set](inputsets/hello-build-deploy.yaml) supplies:
 
@@ -25,7 +25,7 @@ The [test input set](inputsets/hello-build-deploy.yaml) supplies:
 | GCP connector | `gcpproject` |
 | CD execution cluster / namespace | `account.Shared_Cluster` / `default` |
 
-The test input set checks out `harness-template-library` on `main`, builds `gcp/cr-service/Dockerfile` with context `gcp/cr-service`, and pushes `hello-cloud-run`. Python's built-in HTTP server serves one static page on port 8080 as a non-root user. It is for testing only.
+The test input set checks out `harness-template-library` on `main`, builds `gcp/cr-service/Dockerfile` with context `gcp/cr-service`, and pushes `hello-cloud-run`. A small Java 21 HTTP service listens on port 8080 as a non-root user. Push the new application files before running CI; the first Test Intelligence run establishes a baseline, and later runs on changed code can demonstrate test selection.
 
 
 ## Use another repository, registry or service
@@ -34,6 +34,7 @@ Change input sets, not pipeline code:
 
 - Set codebase connector, repository and branch/tag/commit; keep `cloneCodebase` enabled for source scans.
 - Set `dockerfile` and `build_context` to the application's paths.
+- Supply the native Test step image, command, test globs and report paths for that application.
 - Set GAR project, region, repository, image name and connector.
 - Select another Harness service, environment and infrastructure. Services must expose a `gar` GoogleArtifactRegistry artifact source with the same runtime fields as [the sample service](services/cloud-run-test.yaml). The sample service also exposes a Git-backed `cloud_run` manifest; CD supplies its connector, repository, path and commit through runtime inputs.
 - Set the Kubernetes execution connector and namespace for native Cloud Run steps.

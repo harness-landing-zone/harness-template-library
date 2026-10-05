@@ -45,40 +45,16 @@ inputSet:
           execution:
             steps:
             - step:
-                identifier: Smoke_Tests
-                type: Run
+                identifier: Unit_Tests
+                type: Test
                 spec:
                   connectorRef: account.DockerHub
-                  command: |
-                    set -eu
-                    python3 - <<'PYTEST'
-                    from functools import partial
-                    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-                    from threading import Thread
-                    from urllib.request import urlopen
-                    from urllib.error import HTTPError
-
-                    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory="gcp/cr-service"))
-                    worker = Thread(target=server.serve_forever, daemon=True)
-                    worker.start()
-                    base = "http://127.0.0.1:" + str(server.server_port)
-                    try:
-                        with urlopen(base + "/", timeout=5) as response:
-                            assert response.status == 200
-                            assert "Hello from Cloud Run" in response.read().decode()
-                        print("PASS: homepage returns 200 and expected content")
-                        try:
-                            urlopen(base + "/missing-test-page", timeout=5)
-                        except HTTPError as error:
-                            assert error.code == 404
-                        else:
-                            raise AssertionError("Missing page should return 404")
-                        print("PASS: missing page returns 404")
-                    finally:
-                        server.shutdown()
-                        server.server_close()
-                        worker.join()
-                    PYTEST
+                  image: maven:3.9-eclipse-temurin-21
+                  command: mvn -B -f gcp/cr-service/pom.xml test
+                  globs:
+                  - gcp/cr-service/src/test/java/**/*Test.java
+                  reports:
+                  - gcp/cr-service/target/surefire-reports/TEST-*.xml
             - step:
                 identifier: Build_Image
                 type: BuildAndPushGAR

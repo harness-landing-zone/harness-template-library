@@ -1,6 +1,12 @@
-FROM python:3.13-alpine
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY pom.xml .
+COPY src ./src
+RUN mvn -B -DskipTests package
+
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY index.html .
+COPY --from=build /build/target/app.jar app.jar
 USER 65532:65532
 EXPOSE 8080
-CMD ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0", "--directory", "/app"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

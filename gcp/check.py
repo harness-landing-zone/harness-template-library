@@ -8,7 +8,7 @@ ci = yaml.safe_load((root / "pipelines/gar-build-scan-push.yaml").read_text())["
 cd = yaml.safe_load((root / "pipelines/cloud-run-deploy.yaml").read_text())["pipeline"]
 service = yaml.safe_load((root / "services/cloud-run-test.yaml").read_text())["service"]
 stage = ci["stages"][0]["stage"]
-secrets, iac, smoke, build, scan, push = [item["step"] for item in stage["spec"]["execution"]["steps"]]
+secrets, iac, tests, build, scan, push = [item["step"] for item in stage["spec"]["execution"]["steps"]]
 assert [build["type"], scan["type"], push["type"]] == ["BuildAndPushGAR", "AquaTrivy", "BuildAndPushGAR"]
 assert build["spec"]["envVariables"]["PLUGIN_NO_PUSH"] == "true"
 assert push["spec"]["envVariables"]["PLUGIN_PUSH_ONLY"] == "true"
@@ -54,12 +54,16 @@ assert inputs["manifests"][0]["manifest"]["spec"]["store"]["spec"]["commitId"] =
 config = yaml.safe_load((root / "inputsets/hello-build-deploy.yaml").read_text())["inputSet"]["pipeline"]
 assert {v["name"] for v in config["variables"]} == {v["name"] for v in ci["variables"] if v["value"] == "<+input>"}
 assert config["stages"][0]["stage"]["spec"]["cloneCodebase"] is True
-assert [s["step"]["identifier"] for s in config["stages"][0]["stage"]["spec"]["execution"]["steps"]] == ["Smoke_Tests", "Build_Image"]
+assert [s["step"]["identifier"] for s in config["stages"][0]["stage"]["spec"]["execution"]["steps"]] == ["Unit_Tests", "Build_Image"]
 values = {v["name"]: v["value"] for v in config["variables"]}
 assert (root.parent / values["dockerfile"]).is_file()
-assert (root.parent / values["build_context"] / "index.html").is_file()
+assert (root.parent / values["build_context"] / "pom.xml").is_file()
 cd_config = yaml.safe_load((root / "inputsets/hello-deploy.yaml").read_text())["inputSet"]["pipeline"]
 assert {v["name"] for v in cd_config["variables"]} == {v["name"] for v in cd["variables"]}
 print("PASS: STO scan gates, build/push archive, input sets, Git manifest and native rollback.")
 
-assert smoke["spec"]["command"] == "<+input>"
+assert tests["type"] == "Test" and tests["spec"]["intelligenceMode"] is True
+assert all(tests["spec"][field] == "<+input>" for field in ["connectorRef", "image", "command", "globs", "reports"])
+settings = config["stages"][0]["stage"]["spec"]["execution"]["steps"][0]["step"]["spec"]
+assert list(root.parent.glob(settings["globs"][0])), "Test glob must match Java tests"
+assert settings["reports"] == ["gcp/cr-service/target/surefire-reports/TEST-*.xml"]

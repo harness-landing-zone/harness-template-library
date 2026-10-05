@@ -88,15 +88,18 @@ pipeline:
                   fail_on_severity: none
               timeout: 10m
           - step:
-              type: Run
-              name: Test sample web responses
-              identifier: Smoke_Tests
-              timeout: 5m
+              type: Test
+              name: Run intelligent tests
+              identifier: Unit_Tests
+              timeout: 10m
               spec:
                 connectorRef: <+input>
-                image: python:3.13-alpine
+                image: <+input>
                 shell: Sh
                 command: <+input>
+                intelligenceMode: true
+                globs: <+input>
+                reports: <+input>
           - step:
               name: Build image without pushing
               identifier: Build_Image
