@@ -7,10 +7,10 @@ Both pipelines and both input sets are saved in `bau_payments / GCP_Project`. Ha
 Open **GCP GAR Build Scan Push** and select input set **Hello Cloud Run - build and push** (`hello_build_deploy`). Review before running. One run performs:
 
 ```text
-Checkout → Gitleaks → Checkov → Build → Trivy → Push to GAR
+Checkout → Gitleaks → Checkov → Web smoke tests → Build → Trivy → Push to GAR
 ```
 
-CI stops after push. Build triggers and automatic CD chaining are deferred until the two pipelines have been tested separately. Gitleaks scans the latest commit with redacted output; it is not a full-history audit. Checkov scans the build-context directory for Dockerfile/IaC issues. Each scan blocks high/critical findings.
+CI stops after push. Build triggers and automatic CD chaining are deferred until the two pipelines have been tested separately. Gitleaks scans the latest commit with redacted output; it is not a full-history audit. Checkov scans the build-context directory for Dockerfile/IaC issues. For this demonstration, all three scanners use `fail_on_severity: none`: findings remain visible in STO but do not block push. Scanner execution errors still fail. Restore severity gates before production use. The input set supplies two source-level HTTP smoke checks (homepage content and missing-page 404); these do not test the built container or deployed service.
 
 The [test input set](inputsets/hello-build-deploy.yaml) supplies:
 
@@ -47,7 +47,7 @@ After CI succeeds, run **GCP Cloud Run Deploy** with the [CD input set](inputset
 
 ## Verification and limits
 
-The native GAR steps use BuildX through Docker Layer Caching for OIDC. Build exports a local archive; Trivy blocks high/critical vulnerabilities; Push uploads that same archive without rebuilding. CI/Cloud/DLC and STO must be available in this account.
+The native GAR steps use BuildX through Docker Layer Caching for OIDC. Build exports a local archive; Trivy reports image vulnerabilities; Push uploads that same archive without rebuilding. CI/Cloud/DLC and STO must be available in this account.
 
 The native Basic Cloud Run deployment prepares rollback, applies the manifest and performs native instance checks. Application acceptance and rollback must still be tested. On first-deployment rollback Harness deletes the new service; subsequent rollback restores traffic to previous revisions. A maximum instance setting is not a hard spending cap.
 

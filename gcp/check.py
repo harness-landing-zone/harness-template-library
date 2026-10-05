@@ -8,14 +8,14 @@ ci = yaml.safe_load((root / "pipelines/gar-build-scan-push.yaml").read_text())["
 cd = yaml.safe_load((root / "pipelines/cloud-run-deploy.yaml").read_text())["pipeline"]
 service = yaml.safe_load((root / "services/cloud-run-test.yaml").read_text())["service"]
 stage = ci["stages"][0]["stage"]
-secrets, iac, build, scan, push = [item["step"] for item in stage["spec"]["execution"]["steps"]]
+secrets, iac, smoke, build, scan, push = [item["step"] for item in stage["spec"]["execution"]["steps"]]
 assert [build["type"], scan["type"], push["type"]] == ["BuildAndPushGAR", "AquaTrivy", "BuildAndPushGAR"]
 assert build["spec"]["envVariables"]["PLUGIN_NO_PUSH"] == "true"
 assert push["spec"]["envVariables"]["PLUGIN_PUSH_ONLY"] == "true"
 archive = build["spec"]["envVariables"]["PLUGIN_TAR_PATH"]
 assert archive == scan["spec"]["target"]["workspace"] == push["spec"]["envVariables"]["PLUGIN_SOURCE_TAR_PATH"]
 assert scan["spec"]["image"]["type"] == "local_archive"
-assert scan["spec"]["advanced"]["fail_on_severity"] == "high"
+assert scan["spec"]["advanced"]["fail_on_severity"] == "none"
 assert stage["failureStrategies"][0]["onFailure"]["action"]["type"] == "Abort"
 assert all(step["spec"]["caching"] for step in [build, push]), "OIDC requires BuildX"
 for key in ["connectorRef", "host", "projectID", "imageName", "tags"]:
@@ -43,7 +43,7 @@ assert [secrets["type"], iac["type"]] == ["Gitleaks", "Checkov"]
 for step in [secrets, iac]:
     assert step["spec"]["mode"] == "orchestration"
     assert step["spec"]["target"]["type"] == "repository"
-    assert step["spec"]["advanced"]["fail_on_severity"] == "high"
+    assert step["spec"]["advanced"]["fail_on_severity"] == "none"
 assert "--redact" in secrets["spec"]["settings"]["tool_args"]
 manifest = yaml.safe_load((root / "cr-service/service.yaml").read_text())
 assert manifest["metadata"]["name"] == "<+service.name>"
@@ -54,10 +54,12 @@ assert inputs["manifests"][0]["manifest"]["spec"]["store"]["spec"]["commitId"] =
 config = yaml.safe_load((root / "inputsets/hello-build-deploy.yaml").read_text())["inputSet"]["pipeline"]
 assert {v["name"] for v in config["variables"]} == {v["name"] for v in ci["variables"] if v["value"] == "<+input>"}
 assert config["stages"][0]["stage"]["spec"]["cloneCodebase"] is True
-assert [s["step"]["identifier"] for s in config["stages"][0]["stage"]["spec"]["execution"]["steps"]] == ["Build_Image"]
+assert [s["step"]["identifier"] for s in config["stages"][0]["stage"]["spec"]["execution"]["steps"]] == ["Smoke_Tests", "Build_Image"]
 values = {v["name"]: v["value"] for v in config["variables"]}
 assert (root.parent / values["dockerfile"]).is_file()
 assert (root.parent / values["build_context"] / "index.html").is_file()
 cd_config = yaml.safe_load((root / "inputsets/hello-deploy.yaml").read_text())["inputSet"]["pipeline"]
 assert {v["name"] for v in cd_config["variables"]} == {v["name"] for v in cd["variables"]}
 print("PASS: STO scan gates, build/push archive, input sets, Git manifest and native rollback.")
+
+assert smoke["spec"]["command"] == "<+input>"

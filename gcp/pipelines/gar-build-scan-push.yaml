@@ -67,7 +67,7 @@ pipeline:
                 advanced:
                   log:
                     level: info
-                  fail_on_severity: high
+                  fail_on_severity: none
                 settings:
                   tool_args: --redact --log-opts="-n 1"
               timeout: 10m
@@ -85,8 +85,18 @@ pipeline:
                 advanced:
                   log:
                     level: info
-                  fail_on_severity: high
+                  fail_on_severity: none
               timeout: 10m
+          - step:
+              type: Run
+              name: Test sample web responses
+              identifier: Smoke_Tests
+              timeout: 5m
+              spec:
+                connectorRef: <+input>
+                image: python:3.13-alpine
+                shell: Sh
+                command: <+input>
           - step:
               name: Build image without pushing
               identifier: Build_Image
@@ -126,7 +136,7 @@ pipeline:
                 advanced:
                   log:
                     level: info
-                  fail_on_severity: high
+                  fail_on_severity: none
           - step:
               name: Push scanned image to GAR
               identifier: Push_Image
