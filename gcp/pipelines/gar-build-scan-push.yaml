@@ -1,0 +1,268 @@
+pipeline:
+  name: GCP GAR Build Scan Push
+  identifier: gcp_gar_build_scan_push
+  orgIdentifier: bau_payments
+  projectIdentifier: GCP_Project
+  description: Build a supplied Docker context, scan, push to GAR, resolve its digest, then invoke the deployment pipeline. Configuration is supplied
+    by an input set.
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: <+input>
+        repoName: <+input>
+        build: <+input>
+  variables:
+  - name: gar_project
+    type: String
+    value: <+input>
+  - name: gar_region
+    type: String
+    value: <+input>
+  - name: gar_repository
+    type: String
+    value: <+input>
+  - name: image_name
+    type: String
+    value: <+input>
+  - name: gcp_connector
+    type: String
+    value: <+input>
+  - name: docker_connector
+    type: String
+    value: <+input>
+  - name: oidc_project_number
+    type: String
+    value: <+input>
+  - name: oidc_pool
+    type: String
+    value: <+input>
+  - name: oidc_provider
+    type: String
+    value: <+input>
+  - name: oidc_service_account
+    type: String
+    value: <+input>
+  - name: service_ref
+    type: String
+    value: <+input>
+  - name: environment_ref
+    type: String
+    value: <+input>
+  - name: infrastructure_ref
+    type: String
+    value: <+input>
+  - name: execution_connector
+    type: String
+    value: <+input>
+  - name: execution_namespace
+    type: String
+    value: <+input>
+  - name: dockerfile
+    type: String
+    value: <+input>
+  - name: build_context
+    type: String
+    value: <+input>
+  - name: image_tag
+    type: String
+    value: build-<+pipeline.sequenceId>
+  stages:
+  - stage:
+      name: Build Scan Push
+      identifier: Build_Scan_Push
+      type: CI
+      spec:
+        cloneCodebase: <+input>
+        platform:
+          os: Linux
+          arch: Amd64
+        runtime:
+          type: Cloud
+          spec: {}
+        execution:
+          steps:
+          - step:
+              name: Prepare Docker build context
+              identifier: Prepare_Context
+              type: Run
+              timeout: 2m
+              spec:
+                shell: Sh
+                command: <+input>
+          - step:
+              name: Build image without pushing
+              identifier: Build_Image
+              type: BuildAndPushGAR
+              timeout: 20m
+              spec:
+                connectorRef: <+pipeline.variables.gcp_connector>
+                host: <+pipeline.variables.gar_region>-docker.pkg.dev
+                projectID: <+pipeline.variables.gar_project>
+                imageName: <+pipeline.variables.gar_repository>/<+pipeline.variables.image_name>
+                tags:
+                - <+pipeline.variables.image_tag>
+                dockerfile: <+pipeline.variables.dockerfile>
+                context: <+pipeline.variables.build_context>
+                baseImageConnectorRefs: <+input>
+                caching: true
+                envVariables:
+                  PLUGIN_NO_PUSH: 'true'
+                  PLUGIN_BUILDX_LOAD: 'true'
+                  PLUGIN_TAR_PATH: /harness/image.tar
+          - step:
+              name: Scan image with Trivy
+              identifier: Scan_Image
+              type: AquaTrivy
+              timeout: 20m
+              spec:
+                mode: orchestration
+                config: default
+                target:
+                  type: container
+                  detection: manual
+                  name: <+pipeline.variables.gar_region>-docker.pkg.dev/<+pipeline.variables.gar_project>/<+pipeline.variables.gar_repository>/<+pipeline.variables.image_name>
+                  variant: <+pipeline.variables.image_tag>
+                  workspace: /harness/image.tar
+                image:
+                  type: local_archive
+                advanced:
+                  log:
+                    level: info
+                  fail_on_severity: high
+          - step:
+              name: Push scanned image to GAR
+              identifier: Push_Image
+              type: BuildAndPushGAR
+              timeout: 10m
+              spec:
+                connectorRef: <+pipeline.variables.gcp_connector>
+                host: <+pipeline.variables.gar_region>-docker.pkg.dev
+                projectID: <+pipeline.variables.gar_project>
+                imageName: <+pipeline.variables.gar_repository>/<+pipeline.variables.image_name>
+                tags:
+                - <+pipeline.variables.image_tag>
+                caching: true
+                envVariables:
+                  PLUGIN_PUSH_ONLY: 'true'
+                  PLUGIN_SOURCE_TAR_PATH: /harness/image.tar
+                dockerfile: <+pipeline.variables.dockerfile>
+                context: <+pipeline.variables.build_context>
+          - step:
+              name: Authenticate digest lookup
+              identifier: Registry_Token
+              type: Plugin
+              timeout: 2m
+              spec:
+                connectorRef: <+pipeline.variables.docker_connector>
+                image: plugins/gcp-oidc:linux-amd64
+                settings:
+                  project_id: <+pipeline.variables.oidc_project_number>
+                  pool_id: <+pipeline.variables.oidc_pool>
+                  provider_id: <+pipeline.variables.oidc_provider>
+                  service_account_email_id: <+pipeline.variables.oidc_service_account>
+                  duration: '600'
+                  create_application_credentials_file: false
+          - step:
+              name: Resolve pushed image digest
+              identifier: Deployment_Inputs
+              type: Run
+              spec:
+                shell: Sh
+                command: |-
+                  set -eu
+                  python3 - <<'PY'
+                  import json, os, re, urllib.parse, urllib.request
+                  from pathlib import Path
+                  parts = [os.environ[k] for k in ('GAR_PROJECT', 'GAR_REGION', 'GAR_REPOSITORY', 'IMAGE_NAME', 'IMAGE_TAG')]
+                  project, region, repository, package, tag = [urllib.parse.quote(p, safe='') for p in parts]
+                  url = f'https://artifactregistry.googleapis.com/v1/projects/{project}/locations/{region}/repositories/{repository}/packages/{package}/tags/{tag}'
+                  request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GCP_TOKEN']})
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      digest = json.load(response)['version'].rsplit('/', 1)[-1]
+                  if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+                      raise ValueError('GAR returned an invalid image digest')
+                  Path('/harness/image-digest.txt').write_text(digest)
+                  PY
+                  export IMAGE_DIGEST="$(cat /harness/image-digest.txt)"
+                  printf 'Image: %s
+                  Digest: %s
+                  ' "$IMAGE_URI" "$IMAGE_DIGEST"
+                envVariables:
+                  GCP_TOKEN: <+steps.Registry_Token.output.outputVariables.GCLOUD_ACCESS_TOKEN>
+                  GAR_PROJECT: <+pipeline.variables.gar_project>
+                  GAR_REGION: <+pipeline.variables.gar_region>
+                  GAR_REPOSITORY: <+pipeline.variables.gar_repository>
+                  IMAGE_NAME: <+pipeline.variables.image_name>
+                  IMAGE_TAG: <+pipeline.variables.image_tag>
+                  IMAGE_URI: <+pipeline.variables.gar_region>-docker.pkg.dev/<+pipeline.variables.gar_project>/<+pipeline.variables.gar_repository>/<+pipeline.variables.image_name>:<+pipeline.variables.image_tag>
+                outputVariables:
+                - name: IMAGE_URI
+                - name: IMAGE_TAG
+                - name: IMAGE_DIGEST
+              timeout: 2m
+      failureStrategies:
+      - onFailure:
+          errors:
+          - AllErrors
+          action:
+            type: Abort
+  - stage:
+      name: Deploy scanned image
+      identifier: Deploy_Image
+      type: Pipeline
+      spec:
+        org: bau_payments
+        project: GCP_Project
+        pipeline: gcp_cloud_run_deploy
+        inputs:
+          identifier: gcp_cloud_run_deploy
+          variables:
+          - name: gar_project
+            type: String
+            value: <+pipeline.variables.gar_project>
+          - name: gar_region
+            type: String
+            value: <+pipeline.variables.gar_region>
+          - name: gar_repository
+            type: String
+            value: <+pipeline.variables.gar_repository>
+          - name: image_name
+            type: String
+            value: <+pipeline.variables.image_name>
+          - name: gcp_connector
+            type: String
+            value: <+pipeline.variables.gcp_connector>
+          - name: docker_connector
+            type: String
+            value: <+pipeline.variables.docker_connector>
+          - name: service_ref
+            type: String
+            value: <+pipeline.variables.service_ref>
+          - name: environment_ref
+            type: String
+            value: <+pipeline.variables.environment_ref>
+          - name: infrastructure_ref
+            type: String
+            value: <+pipeline.variables.infrastructure_ref>
+          - name: execution_connector
+            type: String
+            value: <+pipeline.variables.execution_connector>
+          - name: execution_namespace
+            type: String
+            value: <+pipeline.variables.execution_namespace>
+          - name: image_tag
+            type: String
+            value: <+pipeline.variables.image_tag>
+          - name: image_digest
+            type: String
+            value: <+pipeline.stages.Build_Scan_Push.spec.execution.steps.Deployment_Inputs.output.outputVariables.IMAGE_DIGEST>
+      when:
+        pipelineStatus: Success
+      failureStrategies:
+      - onFailure:
+          errors:
+          - AllErrors
+          action:
+            type: Abort
+  allowStageExecutions: false

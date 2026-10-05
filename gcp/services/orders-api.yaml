@@ -1,0 +1,48 @@
+service:
+  description: Service requested through IDP
+  gitOpsEnabled: false
+  identifier: orders_api
+  name: orders-api
+  orgIdentifier: bau_payments
+  projectIdentifier: GCP_Project
+  serviceDefinition:
+    spec:
+      artifacts:
+        primary:
+          primaryArtifactRef: <+input>.default(container)
+          sources:
+          - identifier: container
+            spec:
+              connectorRef: <+input>
+              imagePath: <+input>
+              tag: <+input>
+            type: DockerRegistry
+          - identifier: gar
+            type: GoogleArtifactRegistry
+            spec:
+              connectorRef: gcpproject
+              repositoryType: docker
+              project: <+input>
+              region: <+input>
+              repositoryName: <+input>
+              package: orders
+              version: <+input>
+              digest: <+input>
+      manifests:
+      - manifest:
+          identifier: cloud_run
+          spec:
+            store:
+              spec:
+                commitId: <+input>
+                connectorRef: account.generic
+                gitFetchType: Commit
+                paths:
+                - deploy/cloud-run/service.yaml
+                repoName: orders
+              type: Github
+          type: GoogleCloudRunService
+    type: GoogleCloudRun
+  tags:
+    owner: group/account/developers
+    service_type: cloudrun
