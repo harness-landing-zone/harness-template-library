@@ -2,14 +2,14 @@
 
 [Dockerfile](Dockerfile) packages [index.html](index.html) in Python Alpine. Python's built-in HTTP server listens on `0.0.0.0:8080` and serves **Hello from Cloud Run**. This server is for this test only; it has no database, dependencies to install, or Google API calls. The base-image tag receives updates; the CI scan gates the image built on each run.
 
-[service.yaml](service.yaml) tells Cloud Run how to run that image. The same manifest is stored inline in the test Harness service, so the first experiment needs no application Git repository. The CI test input set embeds the Dockerfile and page; local checks verify they match these files.
+[service.yaml](service.yaml) tells Cloud Run how to run that image. CI checks out this repository and builds this directory. The Harness service fetches the manifest from Git at the commit supplied to CD; use the same commit as the successful CI build.
 
 A **service** supplies a stable HTTPS endpoint. A **revision** represents an image/configuration version. An **instance** is a running container. Each deployment creates a revision; Cloud Run scales instances to handle requests.
 
 | Manifest setting | Meaning |
 | --- | --- |
 | `name: <+service.name>` | Uses the selected Harness service's display name; test value is `harness-cloudrun-test` |
-| `image: <+artifact.image>` | Uses the GAR artifact selected by CD; tag and digest come from CI |
+| `image: <+artifact.image>` | Uses the GAR artifact selected by CD; tag and digest identify the image built by CI |
 | CPU `1`, memory `512Mi` | Resources per instance |
 | Minimum `0`, maximum `1` | Scale to zero and constrain test scaling; not a hard spending cap |
 | `cpu-throttling: true` | Request-based billing |

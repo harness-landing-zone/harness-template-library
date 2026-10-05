@@ -4,17 +4,13 @@ Both pipelines and both input sets are saved in `bau_payments / GCP_Project`. Ha
 
 ## Run the example
 
-Open **GCP GAR Build Scan Push** and select input set **Hello Cloud Run - build and deploy** (`hello_build_deploy`). Review before running. One run performs:
+Open **GCP GAR Build Scan Push** and select input set **Hello Cloud Run - build and push** (`hello_build_deploy`). Review before running. One run performs:
 
 ```text
-Prepare tiny web page → Build → Trivy scan → Push to GAR → Resolve digest
-                                                               ↓
-                                                GCP Cloud Run Deploy
-                                                               ↓
-                                                  harness-cloudrun-test
+Checkout → Gitleaks → Checkov → Build → Trivy → Push to GAR
 ```
 
-The native Pipeline stage starts CD only after CI succeeds and passes registry coordinates, image tag, digest, connectors and deployment target inputs. It waits for the child pipeline; a deployment failure fails the parent. There is no separate registry webhook. Registry digest lookup uses a short-lived token from the documented Harness GCP OIDC plugin and the GAR tags API.
+CI stops after push. Build triggers and automatic CD chaining are deferred until the two pipelines have been tested separately. Gitleaks scans the latest commit with redacted output; it is not a full-history audit. Checkov scans the build-context directory for Dockerfile/IaC issues. Each scan blocks high/critical findings.
 
 The [test input set](inputsets/hello-build-deploy.yaml) supplies:
 
@@ -29,27 +25,29 @@ The [test input set](inputsets/hello-build-deploy.yaml) supplies:
 | GCP connector | `gcpproject` |
 | CD execution cluster / namespace | `account.Shared_Cluster` / `default` |
 
-The test input set disables source checkout and writes the two files in [cr-service](cr-service) into the build workspace. Its codebase fields reference the existing library repository to satisfy the generic input schema; the sample does not depend on its contents being published. Python's built-in HTTP server serves one static page on port 8080 as a non-root user. It is for testing only.
+The test input set checks out `harness-template-library` on `main`, builds `gcp/cr-service/Dockerfile` with context `gcp/cr-service`, and pushes `hello-cloud-run`. Python's built-in HTTP server serves one static page on port 8080 as a non-root user. It is for testing only.
+
 
 ## Use another repository, registry or service
 
 Change input sets, not pipeline code:
 
-- Set codebase connector, repository and branch/tag/commit; enable `cloneCodebase`; replace the preparation command with `true` to use the checked-out files unchanged.
+- Set codebase connector, repository and branch/tag/commit; keep `cloneCodebase` enabled for source scans.
 - Set `dockerfile` and `build_context` to the application's paths.
-- Set GAR project, region, repository, image name and connector. Keep the OIDC lookup identity consistent with the selected connector and grant it permission to read the image tag.
-- Select another Harness service, environment and infrastructure. Services must expose a `gar` GoogleArtifactRegistry artifact source with the same runtime fields as [the sample service](services/cloud-run-test.yaml). Each service owns its manifest.
+- Set GAR project, region, repository, image name and connector.
+- Select another Harness service, environment and infrastructure. Services must expose a `gar` GoogleArtifactRegistry artifact source with the same runtime fields as [the sample service](services/cloud-run-test.yaml). The sample service also exposes a Git-backed `cloud_run` manifest; CD supplies its connector, repository, path and commit through runtime inputs.
 - Set the Kubernetes execution connector and namespace for native Cloud Run steps.
 
 The manifest uses `<+service.name>` and `<+artifact.image>`; service display names must already be valid Cloud Run names (lowercase letters, digits and hyphens). It does not transform names. The image and service names are independent.
 
-Harness requires the chained pipeline reference to resolve when saving, so the child pipeline's Harness org/project/identifier remain fixed wiring. Registry and deployment choices are runtime inputs. The base-image connector is a direct step runtime input because Harness rejected an expression inside its connector list.
+The base-image connector is a direct step runtime input because Harness rejected an expression inside its connector list.
 
-The [standalone CD input set](inputsets/hello-deploy.yaml), `hello_deploy`, supplies target configuration for redeploying an existing image; enter its tag and SHA256 digest. Automated CI supplies those values itself and does not load that standalone input set.
+After CI succeeds, run **GCP Cloud Run Deploy** with the [CD input set](inputsets/hello-deploy.yaml), `hello_deploy`. Supply the pushed `build-<sequence>` tag, its GAR SHA256 digest, and the Git commit from that CI execution. The manifest uses that exact commit. CD targets `harness-cloudrun-test` in `harness-management / europe-west2`; the first successful deployment should create the GCP service. The Harness service definition alone does not create a GCP resource.
+
 
 ## Verification and limits
 
-The native GAR steps use BuildX through Docker Layer Caching for OIDC. Build exports a local archive; Trivy blocks high/critical vulnerabilities; Push uploads that same archive without rebuilding. A digest lookup error also blocks CD. CI/Cloud/DLC, STO and pipeline chaining must be available in this account.
+The native GAR steps use BuildX through Docker Layer Caching for OIDC. Build exports a local archive; Trivy blocks high/critical vulnerabilities; Push uploads that same archive without rebuilding. CI/Cloud/DLC and STO must be available in this account.
 
 The native Basic Cloud Run deployment prepares rollback, applies the manifest and performs native instance checks. Application acceptance and rollback must still be tested. On first-deployment rollback Harness deletes the new service; subsequent rollback restores traffic to previous revisions. A maximum instance setting is not a hard spending cap.
 
@@ -63,7 +61,7 @@ Run local checks:
 python3 harness-template-library/gcp/check.py
 ```
 
-Checks execute the sample preparation command and digest parser with mocked responses, and verify input coverage, scan gating, handoff and rollback wiring. They do not prove cloud execution.
+Checks verify input coverage, source paths, scan gating, the shared image archive, Git manifest configuration and rollback wiring. They do not prove cloud execution.
 
 ## References
 

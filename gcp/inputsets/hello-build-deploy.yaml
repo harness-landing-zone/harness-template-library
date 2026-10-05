@@ -1,5 +1,5 @@
 inputSet:
-  name: Hello Cloud Run - build and deploy
+  name: Hello Cloud Run - build and push
   identifier: hello_build_deploy
   orgIdentifier: bau_payments
   projectIdentifier: GCP_Project
@@ -30,75 +30,20 @@ inputSet:
     - name: gcp_connector
       type: String
       value: gcpproject
-    - name: docker_connector
-      type: String
-      value: account.DockerHub
-    - name: oidc_project_number
-      type: String
-      value: '767882366375'
-    - name: oidc_pool
-      type: String
-      value: harness-oidc
-    - name: oidc_provider
-      type: String
-      value: harness-oidc
-    - name: oidc_service_account
-      type: String
-      value: harness-oidc@harness-management.iam.gserviceaccount.com
-    - name: service_ref
-      type: String
-      value: cloud_run_test
-    - name: environment_ref
-      type: String
-      value: staging
-    - name: infrastructure_ref
-      type: String
-      value: cloud_run_test
-    - name: execution_connector
-      type: String
-      value: account.Shared_Cluster
-    - name: execution_namespace
-      type: String
-      value: default
     - name: dockerfile
       type: String
-      value: Dockerfile
+      value: gcp/cr-service/Dockerfile
     - name: build_context
       type: String
-      value: .
+      value: gcp/cr-service
     stages:
     - stage:
         identifier: Build_Scan_Push
         type: CI
         spec:
-          cloneCodebase: false
+          cloneCodebase: true
           execution:
             steps:
-            - step:
-                identifier: Prepare_Context
-                type: Run
-                spec:
-                  command: |
-                    set -eu
-                    cd /harness
-                    cat > Dockerfile <<'CLOUD_RUN_TEST_FILE'
-                    FROM python:3.13-alpine
-                    WORKDIR /app
-                    COPY index.html .
-                    USER 65532:65532
-                    EXPOSE 8080
-                    CMD ["python", "-m", "http.server", "8080", "--bind", "0.0.0.0", "--directory", "/app"]
-                    CLOUD_RUN_TEST_FILE
-                    cat > index.html <<'CLOUD_RUN_TEST_FILE'
-                    <!doctype html>
-                    <html lang="en">
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1">
-                    <title>Cloud Run test</title>
-                    <h1>Hello from Cloud Run</h1>
-                    <p>Built, scanned and pushed by Harness CI. Deployed by Harness CD.</p>
-                    </html>
-                    CLOUD_RUN_TEST_FILE
             - step:
                 identifier: Build_Image
                 type: BuildAndPushGAR

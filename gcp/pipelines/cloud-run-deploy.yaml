@@ -46,6 +46,18 @@ pipeline:
   - name: image_digest
     type: String
     value: <+input>
+  - name: manifest_connector
+    type: String
+    value: <+input>
+  - name: manifest_repo
+    type: String
+    value: <+input>
+  - name: manifest_path
+    type: String
+    value: <+input>
+  - name: source_commit
+    type: String
+    value: <+input>
   stages:
   - stage:
       name: Deploy Cloud Run
@@ -73,6 +85,19 @@ pipeline:
                         digest: <+pipeline.variables.image_digest>
                         connectorRef: <+pipeline.variables.gcp_connector>
                         package: <+pipeline.variables.image_name>
+                manifests:
+                - manifest:
+                    identifier: cloud_run
+                    type: GoogleCloudRunService
+                    spec:
+                      store:
+                        type: Github
+                        spec:
+                          connectorRef: <+pipeline.variables.manifest_connector>
+                          repoName: <+pipeline.variables.manifest_repo>
+                          commitId: <+pipeline.variables.source_commit>
+                          paths:
+                          - <+pipeline.variables.manifest_path>
         environment:
           environmentRef: <+pipeline.variables.environment_ref>
           deployToAll: false

@@ -45,3 +45,15 @@ inputSet:
     - name: image_digest
       type: String
       value: <+input>
+    - name: manifest_connector
+      type: String
+      value: account.generic
+    - name: manifest_repo
+      type: String
+      value: harness-template-library
+    - name: manifest_path
+      type: String
+      value: gcp/cr-service/service.yaml
+    - name: source_commit
+      type: String
+      value: <+input>
