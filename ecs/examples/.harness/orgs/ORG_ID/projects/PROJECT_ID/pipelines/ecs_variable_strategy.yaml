@@ -1,8 +1,12 @@
+# Consumer pipeline stored in the application repo. Its shape belongs to the template;
+# developers change deployment targets through input_sets/, not this file.
 pipeline:
-  name: ECS Variables Example
-  identifier: ECS_variables_Example
+  name: My ECS Service - Rolling, Canary, Blue Green
+  identifier: ecs_variable_strategy
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
   template:
-    templateRef: ecs_variable_delivery
+    templateRef: account.ecs_variable_delivery
     versionLabel: 0.1.0
     templateInputs:
       variables:

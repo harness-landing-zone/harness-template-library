@@ -1,8 +1,13 @@
+# Consumer pipeline stored in the application repo. With stage inserts the application team
+# owns the content of each slot (Dev, Staging, Prod); approvals between slots belong to the template.
+# Each slot repeats the service: Harness does not propagate it between insert blocks.
 pipeline:
-  name: ECS Inserts Example
-  identifier: ECS_Stage_Inserts_Example
+  name: My ECS Service - Stage Inserts
+  identifier: ecs_stage_inserts
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
   template:
-    templateRef: ecs_stage_insert_delivery
+    templateRef: account.ecs_stage_insert_delivery
     versionLabel: 0.1.0
     templateInputs:
       stages:
@@ -13,19 +18,20 @@ pipeline:
               name: Dev Rolling
               identifier: Dev_Rolling
               template:
-                templateRef: ecs_rolling_stage
+                templateRef: account.ecs_rolling_stage
                 versionLabel: 0.1.0
                 templateInputs:
                   type: Deployment
                   spec:
                     service:
-                      serviceRef: <+input>
+                      serviceRef: my_ecs_service
                       serviceInputs: <+input>
                     environment:
-                      environmentRef: <+input>
+                      environmentRef: dev
                       environmentInputs: <+input>
                       serviceOverrideInputs: <+input>
-                      infrastructureDefinitions: <+input>
+                      infrastructureDefinitions:
+                      - identifier: dev_ecs
       - insert:
           identifier: Staging
           stages:
@@ -33,47 +39,49 @@ pipeline:
               name: Staging Canary
               identifier: Staging_Canary
               template:
-                templateRef: ecs_canary_stage
+                templateRef: account.ecs_canary_stage
                 versionLabel: 0.1.0
                 templateInputs:
                   type: Deployment
                   spec:
                     service:
-                      serviceRef: <+input>
+                      serviceRef: my_ecs_service
                       serviceInputs: <+input>
                     environment:
-                      environmentRef: <+input>
+                      environmentRef: staging
                       environmentInputs: <+input>
                       serviceOverrideInputs: <+input>
-                      infrastructureDefinitions: <+input>
+                      infrastructureDefinitions:
+                      - identifier: staging_ecs
       - insert:
           identifier: Prod
           stages:
           - stage:
               name: Prod Blue Green
-              identifier: Prod_BG
+              identifier: Prod_Blue_Green
               template:
-                templateRef: ecs_blue_green_stage
+                templateRef: account.ecs_blue_green_stage
                 versionLabel: 0.1.0
                 templateInputs:
                   type: Deployment
                   spec:
                     service:
-                      serviceRef: <+input>
+                      serviceRef: my_ecs_service
                       serviceInputs: <+input>
                     environment:
-                      environmentRef: <+input>
+                      environmentRef: prod
                       environmentInputs: <+input>
                       serviceOverrideInputs: <+input>
-                      infrastructureDefinitions: <+input>
+                      infrastructureDefinitions:
+                      - identifier: prod_ecs
                     execution:
                       steps:
                       - step:
                           identifier: BlueGreen_Create
                           type: EcsBlueGreenCreateService
                           spec:
-                            loadBalancer: <+input>
-                            prodListener: <+input>
-                            prodListenerRuleArn: <+input>
-                            stageListener: <+input>
-                            stageListenerRuleArn: <+input>
+                            loadBalancer: <PROD_LOAD_BALANCER_ARN>
+                            prodListener: <PROD_PROD_LISTENER_ARN>
+                            prodListenerRuleArn: <PROD_PROD_LISTENER_RULE_ARN>
+                            stageListener: <PROD_STAGE_LISTENER_ARN>
+                            stageListenerRuleArn: <PROD_STAGE_LISTENER_RULE_ARN>

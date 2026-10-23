@@ -1,9 +1,12 @@
+# Consumer pipeline stored in the application repo. Its shape belongs to the template;
+# developers change deployment targets through input_sets/, not this file.
 pipeline:
-  name: ECS Canary Example
-  identifier: ECS_canary_Example
-  description: Composition example; deployment inputs must be bound before execution.
+  name: My ECS Service - Canary
+  identifier: ecs_canary
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
   template:
-    templateRef: ecs_canary_delivery
+    templateRef: account.ecs_canary_delivery
     versionLabel: 0.1.0
     templateInputs:
       stages:

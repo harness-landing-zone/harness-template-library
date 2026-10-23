@@ -1,9 +1,12 @@
+# Consumer pipeline stored in the application repo. Its shape belongs to the template;
+# developers change deployment targets through input_sets/, not this file.
 pipeline:
-  name: ECS Blue Green Example
-  identifier: ECS_blue_green_Example
-  description: Composition example; deployment inputs must be bound before execution.
+  name: My ECS Service - Blue Green
+  identifier: ecs_blue_green
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
   template:
-    templateRef: ecs_blue_green_delivery
+    templateRef: account.ecs_blue_green_delivery
     versionLabel: 0.1.0
     templateInputs:
       stages:

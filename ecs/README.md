@@ -1,41 +1,71 @@
 # ECS delivery templates
 
-Start with an opinionated fixed profile. The canonical source is `stages/`, `pipelines/`, `example/` and `docs/`; `check.py` validates this collection. All template references pin `0.1.0`.
+A Harness template library for deploying Amazon ECS services through Dev → Staging → Prod with mandatory approvals, Continuous Verification (CV) and native rollback. The platform team owns the templates; application teams consume them from their own Git repositories.
 
-| Approach | Parent template | Consumer example |
+To choose a model, read [Choosing a template model](docs/choosing-a-template.md). It covers pros and cons, the Git workflow, RBAC and OPA.
+
+## Contents
+
+| Folder | Owner | What it holds |
 | --- | --- | --- |
-| Rolling throughout | [Rolling](pipelines/rolling.yaml) | [Rolling example](example/rolling.yaml) |
-| Blue/Green throughout | [Blue/Green](pipelines/blue-green_v1.yaml) | [Blue/Green example](example/blue-green.yaml) |
-| Native Canary throughout | [Canary](pipelines/canary_v1.yaml) | [Canary example](example/canary.yaml) |
-| Strategy variable per environment | [Variables](pipelines/variables.yaml) | [Rolling → Canary → Blue/Green](example/variables.yaml) |
-| Independent stage-template selection | [Stage inserts](pipelines/stage-inserts.yaml) | [Rolling → Canary → Blue/Green inserts](example/stage-inserts.yaml) |
+| [stages/](stages/) | Platform | Stage templates: native ECS deployment, Verify and rollback for one strategy |
+| [pipelines/](pipelines/) | Platform | Pipeline templates: Dev → Approve Staging → Staging → Approve Prod → Prod |
+| [examples/](examples/) | Application team | Consumer pipelines and input sets as they would sit in an application repo |
 
-Every parent follows:
+### Templates
 
-```text
-Dev → Approve Staging → Staging → Approve Prod → Prod
-```
+| Template | Identifier | Kind |
+| --- | --- | --- |
+| [Rolling stage](stages/rolling_v1.yaml) | `ecs_rolling_stage` | Stage |
+| [Canary stage](stages/canary_v1.yaml) | `ecs_canary_stage` | Stage |
+| [Blue/Green stage](stages/blue-green_v1.yaml) | `ecs_blue_green_stage` | Stage |
+| [Variable strategy stage](stages/variable-strategy_v1.yaml) | `ecs_variable_strategy_stage` | Stage |
+| [Rolling delivery](pipelines/rolling.yaml) | `ecs_rolling_delivery` | Pipeline, fixed profile |
+| [Canary delivery](pipelines/canary_v1.yaml) | `ecs_canary_delivery` | Pipeline, fixed profile |
+| [Blue/Green delivery](pipelines/blue-green_v1.yaml) | `ecs_blue_green_delivery` | Pipeline, fixed profile |
+| [Variable delivery](pipelines/variables.yaml) | `ecs_variable_delivery` | Pipeline, strategy per environment |
+| [Stage insert delivery](pipelines/stage-inserts.yaml) | `ecs_stage_insert_delivery` | Pipeline, developer-filled slots |
 
-Approvals are fixed in the parent, require one approver, disallow the pipeline executor, and abort on failure. Stage-only execution is disabled. Before registration, replace the literal `account.<APPROVED_RELEASE_GROUP>` with a real authorized group reference. This is a registration placeholder, not a runtime option; keep the minimum count and executor restriction fixed. Inject the destination organization/project scope at registration; the public YAML contains no deployment scope.
+All templates are version `0.1.0`.
 
-The four [stage templates](stages/) own native deployment, Continuous Verification (CV), and rollback. There are no generic status/evidence shell steps, application test inserts, or extra release-result stages.
+### Examples
 
-| Strategy | Native forward flow | Verify mode |
+The examples use the Harness Git Experience layout (`.harness/orgs/<org>/projects/<project>/pipelines/...`). With a Git webhook configured, Harness can import files in this layout automatically. Replace `ORG_ID`, `PROJECT_ID`, `my_ecs_service`, the environment/infrastructure identifiers and the `<...>` placeholders with your own values.
+
+| Combination | Consumer pipeline | Input set |
+| --- | --- | --- |
+| Rolling everywhere | [ecs_rolling.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_rolling.yaml) | [environments.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_rolling/input_sets/environments.yaml) |
+| Canary everywhere | [ecs_canary.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_canary.yaml) | [environments.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_canary/input_sets/environments.yaml) |
+| Blue/Green everywhere | [ecs_blue_green.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_blue_green.yaml) | [environments.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_blue_green/input_sets/environments.yaml) |
+| Rolling → Canary → Blue/Green by variable | [ecs_variable_strategy.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_variable_strategy.yaml) | [environments.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_variable_strategy/input_sets/environments.yaml) |
+| Rolling → Canary → Blue/Green by stage insert | [ecs_stage_inserts.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_stage_inserts.yaml) | Bindings live in the pipeline file, which the team owns in this model |
+
+In the fixed and variable models, the pipeline file is little more than a template reference. The team's day-to-day changes go into the input set. The artifact tag is left as a runtime input, so a trigger or the person running the pipeline supplies it.
+
+## What every pipeline enforces
+
+- **Approvals before Staging and Prod.** Each needs one approver from the release group, the person who ran the pipeline cannot approve, and a rejection or timeout aborts the run. Approvers are fixed in the template and are never runtime inputs.
+- **No stage-only runs.** Stage-only execution is disabled, so nobody can run Prod on its own.
+- **No later environment after a failure.** In the fixed and variable models, Staging and Prod run only if every earlier stage and approval succeeded.
+- **One release promoted across environments.** In the fixed and variable models, the service and artifact are chosen once in Dev; Staging and Prod reuse them (`useFromStage: Dev`).
+
+## What the stage templates do
+
+| Strategy | Forward flow | Verify mode |
 | --- | --- | --- |
 | Rolling | Rolling deploy → Verify | `Rolling` |
 | Canary | Canary deploy → Verify → delete canary → full Rolling deploy | `Canary` |
 | Blue/Green | Create candidate → Verify → swap target groups | `Bluegreen` |
 
-Verify uses the Default monitored service, HIGH sensitivity, a 15-minute analysis window and a 2-hour step timeout. Failure inherits `StageRollback`. Missing monitoring or skipped analysis is a known native Verify limitation: a successful stage does not prove analysis ran. Configure the matching monitored service and health source before deployment validation. No unsupported `failOnNoAnalysis` option is added.
+- **Verify:** uses the Default monitored service, HIGH sensitivity, a 15-minute analysis window and a 2-hour timeout.
+- **Failure:** any failure rolls back the stage. No step can be ignored or marked as successful.
+- **Canary:** this is Harness native ECS Canary, a temporary canary service followed by a Rolling promotion. It is not weighted traffic shifting.
+- **Blue/Green:** the swap scales the old service to zero but keeps its definition, so rollback still works.
 
-For fixed and variable pipelines, select the service/artifact in Dev. Staging and Prod use native `useFromStage: Dev`; their environment, infrastructure, overrides and routing inputs remain separate. Harness save, expansion and runtime-input checks accept this shape; deployment behavior is not yet validated. Stage inserts require service/artifact inputs in each slot and do not enforce release consistency across arbitrary consumer changes.
+## Before first use
 
-Blue/Green exposes the load balancer, production/candidate listener and rule ARNs as inputs. The swap explicitly scales the old service to zero while retaining its service definition for rollback. Native Canary is a temporary canary followed by Rolling promotion; it is not weighted traffic shifting. Compatible manifests, routing, IAM and infrastructure must already exist.
-
-See [decisions and tradeoffs](docs/decisions.md) and [testing evidence and follow-up](docs/testing.md). From this repository run:
-
-```sh
-python3 ecs/check.py
-```
-
-The candidates are registered INLINE in a sandbox, and five comparison consumers plus a Dev-only Rolling consumer have passed save/expansion/input-shape checks. No deployment, CV analysis or approval execution was performed during consolidation. Public examples require resource and approver bindings before use.
+1. **Register the templates.** Register the stage templates first, then the pipeline templates. The examples assume account scope (`account.` prefix); use `org.` for org scope. Store the templates as Remote (Git) templates in this repository.
+2. **Set the approver group.** Replace `account.<APPROVED_RELEASE_GROUP>` in [pipelines/](pipelines/) with your release approver user group.
+3. **Prepare monitoring.** For each service, configure a monitored service and health source that match the environment. Verify can be skipped when no monitoring is configured, so a green stage alone does not prove analysis ran.
+4. **Prepare AWS.** Compatible task and service definitions, load balancer listeners and rules (Blue/Green), and IAM must already exist. The templates do not create them.
+5. **Apply governance.** Put the RBAC roles and OPA policies from the guide in place before giving teams access, and especially before enabling stage inserts.
