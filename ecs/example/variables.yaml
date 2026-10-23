@@ -1,9 +1,6 @@
 pipeline:
-  name: ECS variables example
+  name: ECS Variables Example
   identifier: ECS_variables_Example
-  orgIdentifier: template_factory
-  projectIdentifier: Experian_Demo_Templates
-  description: Candidate consumer. Select service/artifact and targets. Functional test inserts are intentionally empty.
   template:
     templateRef: ecs_variable_delivery
     versionLabel: 0.1.0
@@ -14,10 +11,10 @@ pipeline:
         value: rolling
       - name: stagingDeploymentStrategy
         type: String
-        value: rolling
+        value: canary
       - name: prodDeploymentStrategy
         type: String
-        value: rolling
+        value: blue-green
       stages:
       - stage:
           identifier: Dev
@@ -35,12 +32,15 @@ pipeline:
                   infrastructureDefinitions: <+input>
                 execution:
                   steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []
+                  - step:
+                      identifier: BlueGreen_Create
+                      type: EcsBlueGreenCreateService
+                      spec:
+                        loadBalancer: <+input>
+                        prodListener: <+input>
+                        prodListenerRuleArn: <+input>
+                        stageListener: <+input>
+                        stageListenerRuleArn: <+input>
       - stage:
           identifier: Staging
           template:
@@ -54,12 +54,15 @@ pipeline:
                   infrastructureDefinitions: <+input>
                 execution:
                   steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []
+                  - step:
+                      identifier: BlueGreen_Create
+                      type: EcsBlueGreenCreateService
+                      spec:
+                        loadBalancer: <+input>
+                        prodListener: <+input>
+                        prodListenerRuleArn: <+input>
+                        stageListener: <+input>
+                        stageListenerRuleArn: <+input>
       - stage:
           identifier: Prod
           template:
@@ -73,9 +76,12 @@ pipeline:
                   infrastructureDefinitions: <+input>
                 execution:
                   steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []
+                  - step:
+                      identifier: BlueGreen_Create
+                      type: EcsBlueGreenCreateService
+                      spec:
+                        loadBalancer: <+input>
+                        prodListener: <+input>
+                        prodListenerRuleArn: <+input>
+                        stageListener: <+input>
+                        stageListenerRuleArn: <+input>

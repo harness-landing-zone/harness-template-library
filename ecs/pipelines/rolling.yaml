@@ -1,19 +1,13 @@
 template:
-  name: ECS Rolling Delivery
+  name: ECS Rolling
   identifier: ecs_rolling_delivery
   versionLabel: 0.1.0
   type: Pipeline
-  orgIdentifier: template_factory
-  projectIdentifier: Experian_Demo_Templates
-  description: Platform-owned Dev, Staging, approval, Prod and release-result lifecycle. Service/artifact selected in Dev.
-  tags:
-    owner: platform
-    status: candidate
+  description: fixed ECS strategy across Dev, Staging and Prod.
   spec:
-    allowStageExecutions: false
     stages:
     - stage:
-        name: Dev ECS
+        name: Dev
         identifier: Dev
         template:
           templateRef: ecs_rolling_stage
@@ -29,16 +23,39 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - insert:
-                    identifier: Application_Validation
-                    steps: <+input>
-                - insert:
-                    identifier: Live_Validation
-                    steps: <+input>
     - stage:
-        name: Staging ECS
+        name: Approve Staging
+        identifier: Approve_Staging
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Staging
+                identifier: Approve_Staging_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Staging. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Staging
         identifier: Staging
         template:
           templateRef: ecs_rolling_stage
@@ -54,56 +71,35 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - insert:
-                    identifier: Application_Validation
-                    steps: <+input>
-                - insert:
-                    identifier: Live_Validation
-                    steps: <+input>
+        when:
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED"
     - stage:
-        name: Production approval
+        name: Approve Prod
         identifier: Approve_Prod
         type: Approval
         spec:
           execution:
             steps:
             - step:
-                name: Require successful lower environments
-                identifier: Check_Lower_Environments
-                template:
-                  templateRef: ecs_require_success
-                  versionLabel: 0.1.0
-                  templateInputs:
-                    type: ShellScript
-                    spec:
-                      environmentVariables:
-                      - name: REQUIRED_STATUSES
-                        type: String
-                        value: <+pipeline.stages.Dev.status> <+pipeline.stages.Staging.status>
-                      - name: EXPECTED_COUNT
-                        type: String
-                        value: '2'
-            - step:
-                name: Approve production deployment
-                identifier: Production_Approval
+                name: Approve Prod
+                identifier: Approve_Prod_Step
                 type: HarnessApproval
                 timeout: 1d
                 spec:
-                  approvalMessage: Approve the release validated in Dev and Staging. Review the service, immutable artifact,
-                    target and deployment strategy.
+                  approvalMessage: Review the preceding deployment and approve promotion to Prod. Rejection stops
+                    pipeline promotion.
                   includePipelineExecutionHistory: true
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
                     userGroups:
-                    - account.developer_leads
-                    - account.platform_team
+                    - account.<APPROVED_RELEASE_GROUP>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
-          pipelineStatus: All
+          pipelineStatus: Success
         failureStrategies:
         - onFailure:
             errors:
@@ -111,7 +107,7 @@ template:
             action:
               type: Abort
     - stage:
-        name: Prod ECS
+        name: Prod
         identifier: Prod
         template:
           templateRef: ecs_rolling_stage
@@ -127,43 +123,9 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - insert:
-                    identifier: Application_Validation
-                    steps: <+input>
-                - insert:
-                    identifier: Live_Validation
-                    steps: <+input>
-    - stage:
-        name: Release result
-        identifier: Complete_Release
-        type: Custom
-        spec:
-          execution:
-            steps:
-            - step:
-                name: Require successful release
-                identifier: Check_Release_Result
-                template:
-                  templateRef: ecs_require_success
-                  versionLabel: 0.1.0
-                  templateInputs:
-                    type: ShellScript
-                    spec:
-                      environmentVariables:
-                      - name: REQUIRED_STATUSES
-                        type: String
-                        value: <+pipeline.stages.Dev.status> <+pipeline.stages.Staging.status> <+pipeline.stages.Approve_Prod.status>
-                          <+pipeline.stages.Approve_Prod.spec.execution.steps.Production_Approval.status> <+pipeline.stages.Prod.status>
-                      - name: EXPECTED_COUNT
-                        type: String
-                        value: '5'
         when:
-          pipelineStatus: All
-        failureStrategies:
-        - onFailure:
-            errors:
-            - AllErrors
-            action:
-              type: MarkAsFailure
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED" && <+pipeline.stages.Staging.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Prod.status>
+            == "SUCCEEDED"
+    allowStageExecutions: false

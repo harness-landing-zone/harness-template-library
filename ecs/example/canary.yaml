@@ -1,9 +1,7 @@
 pipeline:
-  name: ECS canary example
+  name: ECS Canary Example
   identifier: ECS_canary_Example
-  orgIdentifier: template_factory
-  projectIdentifier: Experian_Demo_Templates
-  description: Candidate consumer. Select service/artifact and targets. Functional test inserts are intentionally empty.
+  description: Composition example; deployment inputs must be bound before execution.
   template:
     templateRef: ecs_canary_delivery
     versionLabel: 0.1.0
@@ -23,14 +21,6 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []
       - stage:
           identifier: Staging
           template:
@@ -42,14 +32,6 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []
       - stage:
           identifier: Prod
           template:
@@ -61,11 +43,3 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - insert:
-                      identifier: Application_Validation
-                      steps: []
-                  - insert:
-                      identifier: Live_Validation
-                      steps: []

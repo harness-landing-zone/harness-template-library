@@ -1,10 +1,6 @@
 pipeline:
-  name: ECS Stage Inserts Example
+  name: ECS Inserts Example
   identifier: ECS_Stage_Inserts_Example
-  orgIdentifier: template_factory
-  projectIdentifier: Experian_Demo_Templates
-  description: BG in each slot; select the same immutable service/artifact release separately per slot. Developer tests are
-    empty.
   template:
     templateRef: ecs_stage_insert_delivery
     versionLabel: 0.1.0
@@ -14,10 +10,10 @@ pipeline:
           identifier: Dev
           stages:
           - stage:
-              name: Dev Blue Green
-              identifier: Dev_BG
+              name: Dev Rolling
+              identifier: Dev_Rolling
               template:
-                templateRef: ecs_blue_green_stage
+                templateRef: ecs_rolling_stage
                 versionLabel: 0.1.0
                 templateInputs:
                   type: Deployment
@@ -30,22 +26,14 @@ pipeline:
                       environmentInputs: <+input>
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions: <+input>
-                    execution:
-                      steps:
-                      - insert:
-                          identifier: Application_Validation
-                          steps: []
-                      - insert:
-                          identifier: Live_Validation
-                          steps: []
       - insert:
           identifier: Staging
           stages:
           - stage:
-              name: Staging Blue Green
-              identifier: Staging_BG
+              name: Staging Canary
+              identifier: Staging_Canary
               template:
-                templateRef: ecs_blue_green_stage
+                templateRef: ecs_canary_stage
                 versionLabel: 0.1.0
                 templateInputs:
                   type: Deployment
@@ -58,14 +46,6 @@ pipeline:
                       environmentInputs: <+input>
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions: <+input>
-                    execution:
-                      steps:
-                      - insert:
-                          identifier: Application_Validation
-                          steps: []
-                      - insert:
-                          identifier: Live_Validation
-                          steps: []
       - insert:
           identifier: Prod
           stages:
@@ -88,9 +68,12 @@ pipeline:
                       infrastructureDefinitions: <+input>
                     execution:
                       steps:
-                      - insert:
-                          identifier: Application_Validation
-                          steps: []
-                      - insert:
-                          identifier: Live_Validation
-                          steps: []
+                      - step:
+                          identifier: BlueGreen_Create
+                          type: EcsBlueGreenCreateService
+                          spec:
+                            loadBalancer: <+input>
+                            prodListener: <+input>
+                            prodListenerRuleArn: <+input>
+                            stageListener: <+input>
+                            stageListenerRuleArn: <+input>
