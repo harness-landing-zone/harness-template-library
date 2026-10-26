@@ -25,11 +25,11 @@ template:
             type: EcsBlueGreenCreateService
             timeout: 15m
             spec:
-              loadBalancer: <+input>
-              prodListener: <+input>
-              prodListenerRuleArn: <+input>
-              stageListener: <+input>
-              stageListenerRuleArn: <+input>
+              loadBalancer: <+serviceVariables.loadBalancer>
+              prodListener: <+serviceVariables.prodListenerArn>
+              prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
+              stageListener: <+serviceVariables.stageListenerArn>
+              stageListenerRuleArn: <+serviceVariables.stageListenerRuleArn>
               isTrafficShift: false
               sameAsAlreadyRunningInstances: false
         - step:

@@ -22,17 +22,6 @@ inputSet:
                     environmentRef: dev
                     infrastructureDefinitions:
                     - identifier: dev_ecs
-                  execution:
-                    steps:
-                    - step:
-                        identifier: BlueGreen_Create
-                        type: EcsBlueGreenCreateService
-                        spec:
-                          loadBalancer: <DEV_LOAD_BALANCER_ARN>
-                          prodListener: <DEV_PROD_LISTENER_ARN>
-                          prodListenerRuleArn: <DEV_PROD_LISTENER_RULE_ARN>
-                          stageListener: <DEV_STAGE_LISTENER_ARN>
-                          stageListenerRuleArn: <DEV_STAGE_LISTENER_RULE_ARN>
         - stage:
             identifier: Staging
             template:
@@ -43,17 +32,6 @@ inputSet:
                     environmentRef: staging
                     infrastructureDefinitions:
                     - identifier: staging_ecs
-                  execution:
-                    steps:
-                    - step:
-                        identifier: BlueGreen_Create
-                        type: EcsBlueGreenCreateService
-                        spec:
-                          loadBalancer: <STAGING_LOAD_BALANCER_ARN>
-                          prodListener: <STAGING_PROD_LISTENER_ARN>
-                          prodListenerRuleArn: <STAGING_PROD_LISTENER_RULE_ARN>
-                          stageListener: <STAGING_STAGE_LISTENER_ARN>
-                          stageListenerRuleArn: <STAGING_STAGE_LISTENER_RULE_ARN>
         - stage:
             identifier: Prod
             template:
@@ -64,14 +42,3 @@ inputSet:
                     environmentRef: prod
                     infrastructureDefinitions:
                     - identifier: prod_ecs
-                  execution:
-                    steps:
-                    - step:
-                        identifier: BlueGreen_Create
-                        type: EcsBlueGreenCreateService
-                        spec:
-                          loadBalancer: <PROD_LOAD_BALANCER_ARN>
-                          prodListener: <PROD_PROD_LISTENER_ARN>
-                          prodListenerRuleArn: <PROD_PROD_LISTENER_RULE_ARN>
-                          stageListener: <PROD_STAGE_LISTENER_ARN>
-                          stageListenerRuleArn: <PROD_STAGE_LISTENER_RULE_ARN>

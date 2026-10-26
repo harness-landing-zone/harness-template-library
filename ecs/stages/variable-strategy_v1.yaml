@@ -44,11 +44,11 @@ template:
             type: EcsBlueGreenCreateService
             timeout: 15m
             spec:
-              loadBalancer: <+input>
-              prodListener: <+input>
-              prodListenerRuleArn: <+input>
-              stageListener: <+input>
-              stageListenerRuleArn: <+input>
+              loadBalancer: <+serviceVariables.loadBalancer>
+              prodListener: <+serviceVariables.prodListenerArn>
+              prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
+              stageListener: <+serviceVariables.stageListenerArn>
+              stageListenerRuleArn: <+serviceVariables.stageListenerRuleArn>
               isTrafficShift: false
               sameAsAlreadyRunningInstances: false
             when:
@@ -147,7 +147,7 @@ template:
               condition: <+stage.variables.deploymentStrategy> == "rolling" || (<+stage.variables.deploymentStrategy>
                 == "canary" && (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
                 == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
-                == "EXPIRED"))
+                == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED"))
         - step:
             name: Clean up failed canary
             identifier: Canary_Rollback_Delete

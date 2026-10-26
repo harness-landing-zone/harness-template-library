@@ -64,7 +64,7 @@ template:
               stageStatus: All
               condition: (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
                 == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
-                == "EXPIRED")
+                == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED")
         - step:
             name: Clean up failed canary
             identifier: Canary_Rollback_Delete

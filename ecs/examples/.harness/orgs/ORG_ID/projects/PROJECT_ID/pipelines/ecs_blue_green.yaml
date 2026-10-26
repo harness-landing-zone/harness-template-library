@@ -24,17 +24,6 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - step:
-                      identifier: BlueGreen_Create
-                      type: EcsBlueGreenCreateService
-                      spec:
-                        loadBalancer: <+input>
-                        prodListener: <+input>
-                        prodListenerRuleArn: <+input>
-                        stageListener: <+input>
-                        stageListenerRuleArn: <+input>
       - stage:
           identifier: Staging
           template:
@@ -46,17 +35,6 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - step:
-                      identifier: BlueGreen_Create
-                      type: EcsBlueGreenCreateService
-                      spec:
-                        loadBalancer: <+input>
-                        prodListener: <+input>
-                        prodListenerRuleArn: <+input>
-                        stageListener: <+input>
-                        stageListenerRuleArn: <+input>
       - stage:
           identifier: Prod
           template:
@@ -68,14 +46,3 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
-                execution:
-                  steps:
-                  - step:
-                      identifier: BlueGreen_Create
-                      type: EcsBlueGreenCreateService
-                      spec:
-                        loadBalancer: <+input>
-                        prodListener: <+input>
-                        prodListenerRuleArn: <+input>
-                        stageListener: <+input>
-                        stageListenerRuleArn: <+input>

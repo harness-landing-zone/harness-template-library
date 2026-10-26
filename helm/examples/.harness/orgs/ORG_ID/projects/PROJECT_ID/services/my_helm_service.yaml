@@ -1,0 +1,24 @@
+# Kubernetes service whose manifest is a Helm chart. Harness renders the chart with helm template
+# and deploys the result with the Rolling, Canary or Blue Green steps of the stage templates.
+# The chart version is the release identifier promoted from Dev to Prod.
+service:
+  name: My Helm Service
+  identifier: my_helm_service
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  serviceDefinition:
+    type: Kubernetes
+    spec:
+      manifests:
+      - manifest:
+          identifier: chart
+          type: HelmChart
+          spec:
+            store:
+              type: Http
+              spec:
+                connectorRef: account.<HELM_REPO_CONNECTOR>
+            chartName: my-helm-service
+            chartVersion: <+input>
+            helmVersion: V3
+            skipResourceVersioning: false

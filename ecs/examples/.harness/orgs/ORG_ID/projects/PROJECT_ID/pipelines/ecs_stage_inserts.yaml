@@ -74,14 +74,3 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: prod_ecs
-                    execution:
-                      steps:
-                      - step:
-                          identifier: BlueGreen_Create
-                          type: EcsBlueGreenCreateService
-                          spec:
-                            loadBalancer: <PROD_LOAD_BALANCER_ARN>
-                            prodListener: <PROD_PROD_LISTENER_ARN>
-                            prodListenerRuleArn: <PROD_PROD_LISTENER_RULE_ARN>
-                            stageListener: <PROD_STAGE_LISTENER_ARN>
-                            stageListenerRuleArn: <PROD_STAGE_LISTENER_RULE_ARN>

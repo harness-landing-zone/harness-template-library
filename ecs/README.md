@@ -2,7 +2,7 @@
 
 A Harness template library for deploying Amazon ECS services through Dev → Staging → Prod with mandatory approvals, Continuous Verification (CV) and native rollback. The platform team owns the templates; application teams consume them from their own Git repositories.
 
-To choose a model, read [Choosing a template model](docs/choosing-a-template.md). It covers pros and cons, the Git workflow, RBAC and OPA.
+**Recommendation:** use the opinionated templates (fixed profile, or strategy variables) by default, and stage inserts only by exception. [Choosing a template model](docs/choosing-a-template.md) explains why, compares the models, and covers operating at scale, the Git workflow, RBAC and OPA.
 
 ## Contents
 
@@ -10,7 +10,8 @@ To choose a model, read [Choosing a template model](docs/choosing-a-template.md)
 | --- | --- | --- |
 | [stages/](stages/) | Platform | Stage templates: native ECS deployment, Verify and rollback for one strategy |
 | [pipelines/](pipelines/) | Platform | Pipeline templates: Dev → Approve Staging → Staging → Approve Prod → Prod |
-| [examples/](examples/) | Application team | Consumer pipelines and input sets as they would sit in an application repo |
+| [policies/](policies/) | Security | OPA policies that keep consumers on the governed templates |
+| [examples/](examples/) | Application team | Consumer pipelines, input sets and overrides as they would sit in an application repo |
 
 ### Templates
 
@@ -20,13 +21,13 @@ To choose a model, read [Choosing a template model](docs/choosing-a-template.md)
 | [Canary stage](stages/canary_v1.yaml) | `ecs_canary_stage` | Stage |
 | [Blue/Green stage](stages/blue-green_v1.yaml) | `ecs_blue_green_stage` | Stage |
 | [Variable strategy stage](stages/variable-strategy_v1.yaml) | `ecs_variable_strategy_stage` | Stage |
-| [Rolling delivery](pipelines/rolling.yaml) | `ecs_rolling_delivery` | Pipeline, fixed profile |
+| [Rolling delivery](pipelines/rolling_v1.yaml) | `ecs_rolling_delivery` | Pipeline, fixed profile |
 | [Canary delivery](pipelines/canary_v1.yaml) | `ecs_canary_delivery` | Pipeline, fixed profile |
 | [Blue/Green delivery](pipelines/blue-green_v1.yaml) | `ecs_blue_green_delivery` | Pipeline, fixed profile |
-| [Variable delivery](pipelines/variables.yaml) | `ecs_variable_delivery` | Pipeline, strategy per environment |
-| [Stage insert delivery](pipelines/stage-inserts.yaml) | `ecs_stage_insert_delivery` | Pipeline, developer-filled slots |
+| [Variable delivery](pipelines/variables_v1.yaml) | `ecs_variable_delivery` | Pipeline, strategy per environment |
+| [Stage insert delivery](pipelines/stage-inserts_v1.yaml) | `ecs_stage_insert_delivery` | Pipeline, developer-filled slots |
 
-All templates are version `0.1.0`.
+All templates are version `0.1.0`. Each version is its own file (`*_v1.yaml`); a new version is a new file, and a released file is never edited.
 
 ### Examples
 
@@ -41,6 +42,8 @@ The examples use the Harness Git Experience layout (`.harness/orgs/<org>/project
 | Rolling → Canary → Blue/Green by stage insert | [ecs_stage_inserts.yaml](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_stage_inserts.yaml) | Bindings live in the pipeline file, which the team owns in this model |
 
 In the fixed and variable models, the pipeline file is little more than a template reference. The team's day-to-day changes go into the input set. The artifact tag is left as a runtime input, so a trigger or the person running the pipeline supplies it.
+
+Blue/Green routing (load balancer, live and candidate listener and rule ARNs) is not an input. The stage templates read it as service variables, `<+serviceVariables.loadBalancer>`, `prodListenerArn`, `prodListenerRuleArn`, `stageListenerArn` and `stageListenerRuleArn`, from a service-specific environment override. See the [Prod override example](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/overrides/prod/services/my_ecs_service/overrides.yaml); add one per environment that runs Blue/Green.
 
 ## What every pipeline enforces
 
@@ -68,4 +71,5 @@ In the fixed and variable models, the pipeline file is little more than a templa
 2. **Set the approver group.** Replace `account.<APPROVED_RELEASE_GROUP>` in [pipelines/](pipelines/) with your release approver user group.
 3. **Prepare monitoring.** For each service, configure a monitored service and health source that match the environment. Verify can be skipped when no monitoring is configured, so a green stage alone does not prove analysis ran.
 4. **Prepare AWS.** Compatible task and service definitions, load balancer listeners and rules (Blue/Green), and IAM must already exist. The templates do not create them.
-5. **Apply governance.** Put the RBAC roles and OPA policies from the guide in place before giving teams access, and especially before enabling stage inserts.
+5. **Add routing overrides.** For each service and environment that runs Blue/Green, add the five routing variables as a service-specific environment override.
+6. **Apply governance.** Put the RBAC roles and the [policies](policies/) in place before giving teams access, and especially before enabling stage inserts.

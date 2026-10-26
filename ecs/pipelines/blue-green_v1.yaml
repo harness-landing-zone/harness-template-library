@@ -23,17 +23,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
     - stage:
         name: Approve Staging
         identifier: Approve_Staging
@@ -82,17 +71,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
         when:
           pipelineStatus: Success
           condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
@@ -145,17 +123,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
         when:
           pipelineStatus: Success
           condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==

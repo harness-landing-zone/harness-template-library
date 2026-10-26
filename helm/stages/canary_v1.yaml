@@ -1,0 +1,89 @@
+template:
+  name: Helm Canary Stage
+  identifier: helm_canary_stage
+  versionLabel: 0.1.0
+  type: Stage
+  description: Helm chart rendered and deployed by Harness (Kubernetes Canary), Continuous Verification and rollback.
+  spec:
+    type: Deployment
+    spec:
+      deploymentType: Kubernetes
+      environment:
+        environmentRef: <+input>
+        deployToAll: false
+        environmentInputs: <+input>
+        serviceOverrideInputs: <+input>
+        infrastructureDefinitions: <+input>
+      service:
+        serviceRef: <+input>
+        serviceInputs: <+input>
+      execution:
+        steps:
+        - step:
+            name: Canary Deployment
+            identifier: Canary_Deploy
+            type: K8sCanaryDeploy
+            timeout: 15m
+            spec:
+              instanceSelection:
+                type: Count
+                spec:
+                  count: 1
+              skipDryRun: false
+        - step:
+            name: Verify Canary
+            identifier: Verify_Canary
+            type: Verify
+            timeout: 2h
+            spec:
+              isMultiServicesOrEnvs: false
+              type: Canary
+              monitoredService:
+                type: Default
+                spec: {}
+              spec:
+                sensitivity: HIGH
+                duration: 15m
+        - step:
+            name: Canary Delete
+            identifier: Canary_Delete
+            type: K8sCanaryDelete
+            timeout: 10m
+            spec: {}
+        - step:
+            name: Primary Rolling Deployment
+            identifier: Canary_Rolling_Deploy
+            type: K8sRollingDeploy
+            timeout: 15m
+            spec:
+              skipDryRun: false
+              pruningEnabled: false
+        rollbackSteps:
+        - step:
+            name: Canary Delete
+            identifier: Canary_Rollback_Delete
+            type: K8sCanaryDelete
+            timeout: 10m
+            spec: {}
+            when:
+              stageStatus: All
+        - step:
+            name: Rolling Rollback
+            identifier: Rolling_Rollback
+            type: K8sRollingRollback
+            timeout: 15m
+            spec:
+              pruningEnabled: false
+            when:
+              stageStatus: All
+              condition: (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
+                == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
+                == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED")
+    failureStrategies:
+    - onFailure:
+        errors:
+        - AllErrors
+        action:
+          type: StageRollback
+    when:
+      pipelineStatus: Success

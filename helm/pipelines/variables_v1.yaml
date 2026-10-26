@@ -1,8 +1,9 @@
 template:
-  name: ECS Variable Delivery
-  identifier: ecs_variable_delivery
+  name: Helm Variable Delivery
+  identifier: helm_variable_delivery
   versionLabel: 0.1.0
   type: Pipeline
+  description: Helm chart promoted Dev → Staging → Prod with the strategy chosen per environment and approvals between environments.
   spec:
     allowStageExecutions: false
     variables:
@@ -23,7 +24,7 @@ template:
         name: Dev
         identifier: Dev
         template:
-          templateRef: ecs_variable_strategy_stage
+          templateRef: helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -36,17 +37,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
             variables:
             - name: deploymentStrategy
               type: String
@@ -86,7 +76,7 @@ template:
         name: Staging
         identifier: Staging
         template:
-          templateRef: ecs_variable_strategy_stage
+          templateRef: helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -99,17 +89,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
             variables:
             - name: deploymentStrategy
               type: String
@@ -153,7 +132,7 @@ template:
         name: Prod
         identifier: Prod
         template:
-          templateRef: ecs_variable_strategy_stage
+          templateRef: helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -166,17 +145,6 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
-              execution:
-                steps:
-                - step:
-                    identifier: BlueGreen_Create
-                    type: EcsBlueGreenCreateService
-                    spec:
-                      loadBalancer: <+input>
-                      prodListener: <+input>
-                      prodListenerRuleArn: <+input>
-                      stageListener: <+input>
-                      stageListenerRuleArn: <+input>
             variables:
             - name: deploymentStrategy
               type: String
