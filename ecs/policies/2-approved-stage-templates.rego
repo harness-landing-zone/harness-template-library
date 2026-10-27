@@ -50,8 +50,10 @@ matches_approved_shape(s) {
   s.spec.deploymentType == shape.deploymentType
   # The Developer_Functional_Test insert is not part of the shape; policy 8 checks its content.
   nodes := [n | n := s.spec.execution.steps[_]; not n.insert]
-  types := [t | t := nodes[_].step.type]
-  count(types) == count(nodes)
+  # Parallel blocks are flattened in order; any other node (a step group, say) fails the count.
+  flat := [x | n := nodes[_]; x := object.get(n, "parallel", [n])[_]]
+  types := [t | t := flat[_].step.type]
+  count(types) == count(flat)
   types == shape.steps
 }
 

@@ -15,7 +15,7 @@ overrides:
     variables:
     - name: loadBalancer
       type: String
-      value: <PROD_LOAD_BALANCER_ARN>
+      value: <PROD_LOAD_BALANCER_NAME>
     - name: prodListenerArn
       type: String
       value: <PROD_LIVE_LISTENER_ARN>

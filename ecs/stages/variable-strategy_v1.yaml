@@ -18,170 +18,170 @@ template:
         serviceInputs: <+input>
       execution:
         steps:
-        - step:
-            name: ECS Rolling Deploy
-            identifier: Rolling_Deploy
-            type: EcsRollingDeploy
-            timeout: 15m
-            spec:
-              sameAsAlreadyRunningInstances: false
-              forceNewDeployment: false
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "rolling"
-        - step:
-            name: ECS Canary Deploy
-            identifier: Canary_Deploy
-            type: EcsCanaryDeploy
-            timeout: 15m
-            spec: {}
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "canary"
-        - step:
-            name: ECS Blue Green Create Service
-            identifier: BlueGreen_Create
-            type: EcsBlueGreenCreateService
-            timeout: 15m
-            spec:
-              loadBalancer: <+serviceVariables.loadBalancer>
-              prodListener: <+serviceVariables.prodListenerArn>
-              prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
-              stageListener: <+serviceVariables.candidateListenerArn>
-              stageListenerRuleArn: <+serviceVariables.candidateListenerRuleArn>
-              isTrafficShift: false
-              sameAsAlreadyRunningInstances: false
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "blue-green"
-        - step:
-            name: Verify Rolling
-            identifier: Verify_Rolling
-            type: Verify
-            timeout: 2h
-            spec:
-              isMultiServicesOrEnvs: false
-              type: Rolling
-              monitoredService:
-                type: Default
-                spec: {}
+          - parallel:
+              - step:
+                  name: ECS Rolling Deploy
+                  identifier: Rolling_Deploy
+                  type: EcsRollingDeploy
+                  timeout: 15m
+                  spec:
+                    sameAsAlreadyRunningInstances: false
+                    forceNewDeployment: false
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "rolling"
+              - step:
+                  name: ECS Canary Deploy
+                  identifier: Canary_Deploy
+                  type: EcsCanaryDeploy
+                  timeout: 15m
+                  spec: {}
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "canary"
+              - step:
+                  name: ECS Blue Green Create Service
+                  identifier: BlueGreen_Create
+                  type: EcsBlueGreenCreateService
+                  timeout: 15m
+                  spec:
+                    loadBalancer: <+serviceVariables.loadBalancer>
+                    prodListener: <+serviceVariables.prodListenerArn>
+                    prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
+                    stageListener: <+serviceVariables.candidateListenerArn>
+                    stageListenerRuleArn: <+serviceVariables.candidateListenerRuleArn>
+                    isTrafficShift: false
+                    sameAsAlreadyRunningInstances: false
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "blue-green"
+          - parallel:
+              - step:
+                  name: Verify Rolling
+                  identifier: Verify_Rolling
+                  type: Verify
+                  timeout: 2h
+                  spec:
+                    isMultiServicesOrEnvs: false
+                    type: Rolling
+                    monitoredService:
+                      type: Default
+                      spec: {}
+                    spec:
+                      sensitivity: HIGH
+                      duration: 15m
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "rolling"
+              - step:
+                  name: Verify Canary
+                  identifier: Verify_Canary
+                  type: Verify
+                  timeout: 2h
+                  spec:
+                    isMultiServicesOrEnvs: false
+                    type: Canary
+                    monitoredService:
+                      type: Default
+                      spec: {}
+                    spec:
+                      sensitivity: HIGH
+                      duration: 15m
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "canary"
+              - step:
+                  name: Verify Bluegreen
+                  identifier: Verify_BlueGreen
+                  type: Verify
+                  timeout: 2h
+                  spec:
+                    isMultiServicesOrEnvs: false
+                    type: Bluegreen
+                    monitoredService:
+                      type: Default
+                      spec: {}
+                    spec:
+                      sensitivity: HIGH
+                      duration: 15m
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "blue-green"
+          - insert:
+              name: Developer Functional Test
+              identifier: Developer_Functional_Test
+              steps: <+input>
+          - parallel:
+              - step:
+                  name: Delete canary
+                  identifier: Canary_Delete
+                  type: EcsCanaryDelete
+                  timeout: 10m
+                  spec: {}
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "canary"
+              - step:
+                  name: Swap Blue Green target groups
+                  identifier: BlueGreen_Swap
+                  type: EcsBlueGreenSwapTargetGroups
+                  timeout: 10m
+                  spec:
+                    doNotDownsizeOldService: false
+                  when:
+                    stageStatus: Success
+                    condition: <+stage.variables.deploymentStrategy> == "blue-green"
+          - step:
+              name: Promote canary with rolling deploy
+              identifier: Canary_Rolling_Deploy
+              type: EcsRollingDeploy
+              timeout: 15m
               spec:
-                sensitivity: HIGH
-                duration: 15m
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "rolling"
-        - step:
-            name: Verify Canary
-            identifier: Verify_Canary
-            type: Verify
-            timeout: 2h
-            spec:
-              isMultiServicesOrEnvs: false
-              type: Canary
-              monitoredService:
-                type: Default
-                spec: {}
-              spec:
-                sensitivity: HIGH
-                duration: 15m
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "canary"
-        - step:
-            name: Verify Bluegreen
-            identifier: Verify_BlueGreen
-            type: Verify
-            timeout: 2h
-            spec:
-              isMultiServicesOrEnvs: false
-              type: Bluegreen
-              monitoredService:
-                type: Default
-                spec: {}
-              spec:
-                sensitivity: HIGH
-                duration: 15m
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "blue-green"
-        - insert:
-            name: Developer Functional Test
-            identifier: Developer_Functional_Test
-            steps: <+input>
-        - step:
-            name: Delete canary
-            identifier: Canary_Delete
-            type: EcsCanaryDelete
-            timeout: 10m
-            spec: {}
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "canary"
-        - step:
-            name: Swap Blue Green target groups
-            identifier: BlueGreen_Swap
-            type: EcsBlueGreenSwapTargetGroups
-            timeout: 10m
-            spec:
-              doNotDownsizeOldService: false
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "blue-green"
-        - step:
-            name: Promote canary with rolling deploy
-            identifier: Canary_Rolling_Deploy
-            type: EcsRollingDeploy
-            timeout: 15m
-            spec:
-              sameAsAlreadyRunningInstances: false
-              forceNewDeployment: false
-            when:
-              stageStatus: Success
-              condition: <+stage.variables.deploymentStrategy> == "canary"
+                sameAsAlreadyRunningInstances: false
+                forceNewDeployment: false
+              when:
+                stageStatus: Success
+                condition: <+stage.variables.deploymentStrategy> == "canary"
         rollbackSteps:
-        - step:
-            name: ECS Rolling Rollback
-            identifier: Rolling_Rollback
-            type: EcsRollingRollback
-            timeout: 15m
-            spec: {}
-            when:
-              stageStatus: All
-              condition: <+stage.variables.deploymentStrategy> == "rolling" || (<+stage.variables.deploymentStrategy>
-                == "canary" && (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
-                == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
-                == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED"))
-        - step:
-            name: Clean up failed canary
-            identifier: Canary_Rollback_Delete
-            type: EcsCanaryDelete
-            timeout: 10m
-            spec: {}
-            when:
-              stageStatus: All
-              condition: <+stage.variables.deploymentStrategy> == "canary" && <+stage.spec.execution.steps.Canary_Delete.status>
-                != "SUCCEEDED"
-        - step:
-            name: ECS Blue Green Rollback
-            identifier: BlueGreen_Rollback
-            type: EcsBlueGreenRollback
-            timeout: 15m
-            spec: {}
-            when:
-              stageStatus: All
-              condition: <+stage.variables.deploymentStrategy> == "blue-green"
+          - parallel:
+              - step:
+                  name: ECS Rolling Rollback
+                  identifier: Rolling_Rollback
+                  type: EcsRollingRollback
+                  timeout: 15m
+                  spec: {}
+                  when:
+                    stageStatus: All
+                    condition: <+stage.variables.deploymentStrategy> == "rolling" || (<+stage.variables.deploymentStrategy> == "canary" && (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED"))
+              - step:
+                  name: Clean up failed canary
+                  identifier: Canary_Rollback_Delete
+                  type: EcsCanaryDelete
+                  timeout: 10m
+                  spec: {}
+                  when:
+                    stageStatus: All
+                    condition: <+stage.variables.deploymentStrategy> == "canary" && <+stage.spec.execution.steps.Canary_Delete.status> != "SUCCEEDED"
+              - step:
+                  name: ECS Blue Green Rollback
+                  identifier: BlueGreen_Rollback
+                  type: EcsBlueGreenRollback
+                  timeout: 15m
+                  spec: {}
+                  when:
+                    stageStatus: All
+                    condition: <+stage.variables.deploymentStrategy> == "blue-green"
     variables:
-    - name: deploymentStrategy
-      type: String
-      description: Select a strategy matching the service manifest and prepared infrastructure.
-      required: true
-      value: <+input>.default(rolling).allowedValues(rolling,canary,blue-green)
+      - name: deploymentStrategy
+        type: String
+        description: Select a strategy matching the service manifest and prepared infrastructure.
+        required: true
+        value: <+input>.default(rolling).allowedValues(rolling,canary,blue-green)
     failureStrategies:
-    - onFailure:
-        errors:
-        - AllErrors
-        action:
-          type: StageRollback
+      - onFailure:
+          errors:
+            - AllErrors
+          action:
+            type: StageRollback
     when:
       pipelineStatus: Success

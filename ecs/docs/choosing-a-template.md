@@ -86,7 +86,7 @@ Every stage template has one step insert, `Developer_Functional_Test`, where the
 | Canary | Canary deploy → Verify → **developer tests** → delete canary → full Rolling deploy |
 | Blue/Green | Create candidate → Verify → **developer tests** → swap target groups |
 
-- **Optional.** An empty slot runs nothing, and the stage carries on.
+- **Optional.** An empty slot runs nothing, and the stage carries on. To leave it empty, keep `steps: <+input>` in the pipeline and supply nothing at run time; Harness rejects `steps: []` when the pipeline is saved.
 - **A failing test rolls back the stage,** like any other failure. For Blue/Green and Canary that happens before live traffic moves.
 - **What to test:** Blue/Green tests reach the candidate through the stage listener, for example the `candidate_health_url` output of the environment's IaCM workspace ([example](../examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/ecs_blue_green.yaml)).
 - **Where the tests live:** in the consumer pipeline file, under each stage's `templateInputs`, changed by PR and reviewed by code owners. Harness requires pipeline create/edit to supply insert content as a runtime input, so keeping tests in Git lets developers stay without pipeline edit in Harness.

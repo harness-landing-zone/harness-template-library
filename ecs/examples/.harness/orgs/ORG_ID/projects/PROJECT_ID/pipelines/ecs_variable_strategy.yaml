@@ -1,7 +1,7 @@
 # Consumer pipeline stored in the application repo. Its shape belongs to the template;
 # developers change deployment targets through input_sets/, not this file.
 pipeline:
-  name: My ECS Service - Rolling, Canary, Blue Green
+  name: My ECS Service - Rolling Canary Blue Green
   identifier: ecs_variable_strategy
   orgIdentifier: ORG_ID
   projectIdentifier: PROJECT_ID
