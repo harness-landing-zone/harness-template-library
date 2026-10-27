@@ -1,0 +1,44 @@
+# Environment bindings owned by the application team. The artifact tag stays a runtime input
+# (supplied by a trigger or at run time). Replace the example identifiers with your own.
+inputSet:
+  name: Environments
+  identifier: environments
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  pipeline:
+    identifier: ecs_blue_green
+    template:
+      templateInputs:
+        stages:
+        - stage:
+            identifier: Dev
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  service:
+                    serviceRef: my_ecs_service
+                  environment:
+                    environmentRef: dev
+                    infrastructureDefinitions:
+                    - identifier: dev_ecs
+        - stage:
+            identifier: Staging
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  environment:
+                    environmentRef: staging
+                    infrastructureDefinitions:
+                    - identifier: staging_ecs
+        - stage:
+            identifier: Prod
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  environment:
+                    environmentRef: prod
+                    infrastructureDefinitions:
+                    - identifier: prod_ecs

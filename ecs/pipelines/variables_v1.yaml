@@ -1,0 +1,170 @@
+template:
+  name: ECS Variable Delivery
+  identifier: ecs_variable_delivery
+  versionLabel: 0.1.0
+  type: Pipeline
+  spec:
+    allowStageExecutions: false
+    variables:
+    - name: devDeploymentStrategy
+      type: String
+      required: true
+      value: <+input>.default(rolling).allowedValues(rolling,canary,blue-green)
+    - name: stagingDeploymentStrategy
+      type: String
+      required: true
+      value: <+input>.default(rolling).allowedValues(rolling,canary,blue-green)
+    - name: prodDeploymentStrategy
+      type: String
+      required: true
+      value: <+input>.default(rolling).allowedValues(rolling,canary,blue-green)
+    stages:
+    - stage:
+        name: Dev
+        identifier: Dev
+        template:
+          templateRef: ecs_variable_strategy_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                serviceRef: <+input>
+                serviceInputs: <+input>
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
+            variables:
+            - name: deploymentStrategy
+              type: String
+              value: <+pipeline.variables.devDeploymentStrategy>
+    - stage:
+        name: Approve Staging
+        identifier: Approve_Staging
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Staging
+                identifier: Approve_Staging_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Staging. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Staging
+        identifier: Staging
+        template:
+          templateRef: ecs_variable_strategy_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
+            variables:
+            - name: deploymentStrategy
+              type: String
+              value: <+pipeline.variables.stagingDeploymentStrategy>
+        when:
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED"
+    - stage:
+        name: Approve Prod
+        identifier: Approve_Prod
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Prod
+                identifier: Approve_Prod_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Prod. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Prod
+        identifier: Prod
+        template:
+          templateRef: ecs_variable_strategy_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
+            variables:
+            - name: deploymentStrategy
+              type: String
+              value: <+pipeline.variables.prodDeploymentStrategy>
+        when:
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED" && <+pipeline.stages.Staging.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Prod.status>
+            == "SUCCEEDED"

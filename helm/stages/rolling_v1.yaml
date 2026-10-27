@@ -1,0 +1,61 @@
+template:
+  name: Helm Rolling Stage
+  identifier: helm_rolling_stage
+  versionLabel: 0.1.0
+  type: Stage
+  description: Helm chart rendered and deployed by Harness (Kubernetes Rolling), Continuous Verification and rollback.
+  spec:
+    type: Deployment
+    spec:
+      deploymentType: Kubernetes
+      environment:
+        environmentRef: <+input>
+        deployToAll: false
+        environmentInputs: <+input>
+        serviceOverrideInputs: <+input>
+        infrastructureDefinitions: <+input>
+      service:
+        serviceRef: <+input>
+        serviceInputs: <+input>
+      execution:
+        steps:
+        - step:
+            name: Rolling Deployment
+            identifier: Rolling_Deploy
+            type: K8sRollingDeploy
+            timeout: 15m
+            spec:
+              skipDryRun: false
+              pruningEnabled: false
+        - step:
+            name: Verify Rolling
+            identifier: Verify_Rolling
+            type: Verify
+            timeout: 2h
+            spec:
+              isMultiServicesOrEnvs: false
+              type: Rolling
+              monitoredService:
+                type: Default
+                spec: {}
+              spec:
+                sensitivity: HIGH
+                duration: 15m
+        rollbackSteps:
+        - step:
+            name: Rolling Rollback
+            identifier: Rolling_Rollback
+            type: K8sRollingRollback
+            timeout: 15m
+            spec:
+              pruningEnabled: false
+            when:
+              stageStatus: All
+    failureStrategies:
+    - onFailure:
+        errors:
+        - AllErrors
+        action:
+          type: StageRollback
+    when:
+      pipelineStatus: Success

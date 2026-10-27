@@ -1,0 +1,64 @@
+template:
+  name: ECS Rolling Stage
+  identifier: ecs_rolling_stage
+  versionLabel: 0.1.0
+  type: Stage
+  description: native ECS deployment, Continuous Verification and rollback.
+  spec:
+    type: Deployment
+    spec:
+      deploymentType: ECS
+      environment:
+        environmentRef: <+input>
+        deployToAll: false
+        environmentInputs: <+input>
+        serviceOverrideInputs: <+input>
+        infrastructureDefinitions: <+input>
+      service:
+        serviceRef: <+input>
+        serviceInputs: <+input>
+      execution:
+        steps:
+        - step:
+            name: ECS Rolling Deploy
+            identifier: Rolling_Deploy
+            type: EcsRollingDeploy
+            timeout: 15m
+            spec:
+              sameAsAlreadyRunningInstances: false
+              forceNewDeployment: false
+        - step:
+            name: Verify Rolling
+            identifier: Verify_Rolling
+            type: Verify
+            timeout: 2h
+            spec:
+              isMultiServicesOrEnvs: false
+              type: Rolling
+              monitoredService:
+                type: Default
+                spec: {}
+              spec:
+                sensitivity: HIGH
+                duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
+        rollbackSteps:
+        - step:
+            name: ECS Rolling Rollback
+            identifier: Rolling_Rollback
+            type: EcsRollingRollback
+            timeout: 15m
+            spec: {}
+            when:
+              stageStatus: All
+    failureStrategies:
+    - onFailure:
+        errors:
+        - AllErrors
+        action:
+          type: StageRollback
+    when:
+      pipelineStatus: Success

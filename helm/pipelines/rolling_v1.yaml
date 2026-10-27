@@ -1,0 +1,131 @@
+template:
+  name: Helm Rolling
+  identifier: helm_rolling_delivery
+  versionLabel: 0.1.0
+  type: Pipeline
+  description: Helm chart promoted Dev → Staging → Prod with one fixed strategy and approvals between environments.
+  spec:
+    stages:
+    - stage:
+        name: Dev
+        identifier: Dev
+        template:
+          templateRef: helm_rolling_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                serviceRef: <+input>
+                serviceInputs: <+input>
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+    - stage:
+        name: Approve Staging
+        identifier: Approve_Staging
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Staging
+                identifier: Approve_Staging_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Staging. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Staging
+        identifier: Staging
+        template:
+          templateRef: helm_rolling_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+        when:
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED"
+    - stage:
+        name: Approve Prod
+        identifier: Approve_Prod
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Prod
+                identifier: Approve_Prod_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Prod. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - stage:
+        name: Prod
+        identifier: Prod
+        template:
+          templateRef: helm_rolling_stage
+          versionLabel: 0.1.0
+          templateInputs:
+            type: Deployment
+            spec:
+              service:
+                useFromStage:
+                  stage: Dev
+              environment:
+                environmentRef: <+input>
+                environmentInputs: <+input>
+                serviceOverrideInputs: <+input>
+                infrastructureDefinitions: <+input>
+        when:
+          pipelineStatus: Success
+          condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
+            "SUCCEEDED" && <+pipeline.stages.Staging.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Prod.status>
+            == "SUCCEEDED"
+    allowStageExecutions: false

@@ -1,0 +1,45 @@
+# Environment bindings owned by the application team. The chart version stays a runtime input
+# (supplied by a Helm chart trigger or at run time). Per-environment chart values come from overrides, not from here.
+# Replace the example identifiers with your own.
+inputSet:
+  name: Environments
+  identifier: environments
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  pipeline:
+    identifier: helm_variable_strategy
+    template:
+      templateInputs:
+        stages:
+        - stage:
+            identifier: Dev
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  service:
+                    serviceRef: my_helm_service
+                  environment:
+                    environmentRef: dev
+                    infrastructureDefinitions:
+                    - identifier: dev_k8s
+        - stage:
+            identifier: Staging
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  environment:
+                    environmentRef: staging
+                    infrastructureDefinitions:
+                    - identifier: staging_k8s
+        - stage:
+            identifier: Prod
+            template:
+              templateInputs:
+                type: Deployment
+                spec:
+                  environment:
+                    environmentRef: prod
+                    infrastructureDefinitions:
+                    - identifier: prod_k8s

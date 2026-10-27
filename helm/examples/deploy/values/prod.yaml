@@ -1,0 +1,5 @@
+# Prod values for the chart, referenced by the Prod override. Harness resolves expressions
+# in values files before running helm template.
+replicaCount: <+serviceVariables.replicas>
+ingress:
+  host: <+serviceVariables.ingressHost>

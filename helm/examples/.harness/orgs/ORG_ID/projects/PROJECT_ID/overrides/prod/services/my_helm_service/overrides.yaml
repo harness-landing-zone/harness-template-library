@@ -1,0 +1,32 @@
+# Service-specific environment override (Overrides V2) for Prod. Harness layers this values file
+# over the chart's own values and resolves <+serviceVariables.*> inside it, so per-environment
+# settings need no runtime inputs. Owned by the team lead or platform; add one file per environment.
+overrides:
+  identifier: prod_my_helm_service
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  environmentRef: prod
+  serviceRef: my_helm_service
+  type: ENV_SERVICE_OVERRIDE
+  spec:
+    manifests:
+    - manifest:
+        identifier: prod_values
+        type: Values
+        spec:
+          store:
+            type: Git
+            spec:
+              connectorRef: account.<GIT_CONNECTOR>
+              repoName: <APPLICATION_REPO>
+              gitFetchType: Branch
+              branch: main
+              paths:
+              - deploy/values/prod.yaml
+    variables:
+    - name: replicas
+      type: String
+      value: "4"
+    - name: ingressHost
+      type: String
+      value: <PROD_HOSTNAME>

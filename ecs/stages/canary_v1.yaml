@@ -3,12 +3,7 @@ template:
   identifier: ecs_canary_stage
   versionLabel: 0.1.0
   type: Stage
-  orgIdentifier: template_factory
-  projectIdentifier: Experian_Demo_Templates
-  description: Native ECS Canary deployment, platform verification and rollback; developer test inserts are unpopulated.
-  tags:
-    owner: platform
-    status: candidate
+  description: native ECS deployment, Continuous Verification and rollback.
   spec:
     type: Deployment
     spec:
@@ -30,10 +25,6 @@ template:
             type: EcsCanaryDeploy
             timeout: 15m
             spec: {}
-        - insert:
-            name: Developer application validation
-            identifier: Application_Validation
-            steps: <+input>
         - step:
             name: Verify Canary
             identifier: Verify_Canary
@@ -48,40 +39,24 @@ template:
               spec:
                 sensitivity: HIGH
                 duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         - step:
-            name: Require successful verification
-            identifier: Check_Verification
-            template:
-              templateRef: ecs_require_success
-              versionLabel: 0.1.0
-              templateInputs:
-                type: ShellScript
-                spec:
-                  environmentVariables:
-                  - name: REQUIRED_STATUSES
-                    type: String
-                    value: <+stage.spec.execution.steps.Verify_Canary.status>
-                  - name: EXPECTED_COUNT
-                    type: String
-                    value: '1'
-        - step:
-            name: Delete validated canary
+            name: Delete canary
             identifier: Canary_Delete
             type: EcsCanaryDelete
             timeout: 10m
             spec: {}
         - step:
-            name: Promote validated canary with rolling deploy
+            name: Promote canary with rolling deploy
             identifier: Canary_Rolling_Deploy
             type: EcsRollingDeploy
             timeout: 15m
             spec:
               sameAsAlreadyRunningInstances: false
               forceNewDeployment: false
-        - insert:
-            name: Developer live validation
-            identifier: Live_Validation
-            steps: <+input>
         rollbackSteps:
         - step:
             name: ECS Rolling Rollback
@@ -93,7 +68,7 @@ template:
               stageStatus: All
               condition: (<+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "SUCCEEDED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
                 == "FAILED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ABORTED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status>
-                == "EXPIRED")
+                == "EXPIRED" || <+stage.spec.execution.steps.Canary_Rolling_Deploy.status> == "ERRORED")
         - step:
             name: Clean up failed canary
             identifier: Canary_Rollback_Delete

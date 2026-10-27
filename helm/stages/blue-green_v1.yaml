@@ -1,0 +1,70 @@
+template:
+  name: Helm Blue Green Stage
+  identifier: helm_blue_green_stage
+  versionLabel: 0.1.0
+  type: Stage
+  description: Helm chart rendered and deployed by Harness (Kubernetes Blue Green), Continuous Verification and rollback.
+  spec:
+    type: Deployment
+    spec:
+      deploymentType: Kubernetes
+      environment:
+        environmentRef: <+input>
+        deployToAll: false
+        environmentInputs: <+input>
+        serviceOverrideInputs: <+input>
+        infrastructureDefinitions: <+input>
+      service:
+        serviceRef: <+input>
+        serviceInputs: <+input>
+      execution:
+        steps:
+        - step:
+            name: Stage Deployment
+            identifier: BlueGreen_Deploy
+            type: K8sBlueGreenDeploy
+            timeout: 15m
+            spec:
+              skipDryRun: false
+              pruningEnabled: false
+              skipDeploymentIfSameManifest: false
+        - step:
+            name: Verify Bluegreen
+            identifier: Verify_Bluegreen
+            type: Verify
+            timeout: 2h
+            spec:
+              isMultiServicesOrEnvs: false
+              type: Bluegreen
+              monitoredService:
+                type: Default
+                spec: {}
+              spec:
+                sensitivity: HIGH
+                duration: 15m
+        - step:
+            name: Swap primary with stage service
+            identifier: BlueGreen_Swap
+            type: K8sBGSwapServices
+            timeout: 10m
+            spec: {}
+        rollbackSteps:
+        - step:
+            name: Swap primary with stage service
+            identifier: BlueGreen_Rollback_Swap
+            type: K8sBGSwapServices
+            timeout: 10m
+            spec: {}
+            when:
+              stageStatus: All
+              condition: (<+stage.spec.execution.steps.BlueGreen_Swap.status> == "SUCCEEDED" || <+stage.spec.execution.steps.BlueGreen_Swap.status>
+                == "FAILED" || <+stage.spec.execution.steps.BlueGreen_Swap.status> == "ABORTED" || <+stage.spec.execution.steps.BlueGreen_Swap.status>
+                == "EXPIRED" || <+stage.spec.execution.steps.BlueGreen_Swap.status> == "ERRORED")
+    failureStrategies:
+    - onFailure:
+        errors:
+        - AllErrors
+        action:
+          type: StageRollback
+    when:
+      pipelineStatus: Success

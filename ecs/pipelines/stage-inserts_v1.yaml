@@ -1,0 +1,82 @@
+template:
+  name: ECS Insert Delivery
+  identifier: ecs_stage_insert_delivery
+  versionLabel: 0.1.0
+  type: Pipeline
+  spec:
+    allowStageExecutions: false
+    stages:
+    - insert:
+        name: Dev
+        identifier: Dev
+        stages: <+input>
+    - stage:
+        name: Approve Staging
+        identifier: Approve_Staging
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Staging
+                identifier: Approve_Staging_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Staging. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - insert:
+        name: Staging
+        identifier: Staging
+        stages: <+input>
+    - stage:
+        name: Approve Prod
+        identifier: Approve_Prod
+        type: Approval
+        spec:
+          execution:
+            steps:
+            - step:
+                name: Approve Prod
+                identifier: Approve_Prod_Step
+                type: HarnessApproval
+                timeout: 1d
+                spec:
+                  approvalMessage: Review the preceding deployment and approve promotion to Prod. Rejection stops
+                    pipeline promotion.
+                  includePipelineExecutionHistory: true
+                  approvers:
+                    minimumCount: 1
+                    disallowPipelineExecutor: true
+                    userGroups:
+                    - account.<APPROVED_RELEASE_GROUP>
+                  isAutoRejectEnabled: false
+                  approverInputs: []
+        when:
+          pipelineStatus: Success
+        failureStrategies:
+        - onFailure:
+            errors:
+            - AllErrors
+            action:
+              type: Abort
+    - insert:
+        name: Prod
+        identifier: Prod
+        stages: <+input>

@@ -1,0 +1,76 @@
+# Consumer pipeline stored in the application repo. With stage inserts the application team
+# owns the content of each slot (Dev, Staging, Prod); approvals between slots belong to the template.
+# Each slot repeats the service: Harness does not propagate it between insert blocks.
+pipeline:
+  name: My Helm Service - Stage Inserts
+  identifier: helm_stage_inserts
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  template:
+    templateRef: account.helm_stage_insert_delivery
+    versionLabel: 0.1.0
+    templateInputs:
+      stages:
+      - insert:
+          identifier: Dev
+          stages:
+          - stage:
+              name: Dev Rolling
+              identifier: Dev_Rolling
+              template:
+                templateRef: account.helm_rolling_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_helm_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: dev
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: dev_k8s
+      - insert:
+          identifier: Staging
+          stages:
+          - stage:
+              name: Staging Canary
+              identifier: Staging_Canary
+              template:
+                templateRef: account.helm_canary_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_helm_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: staging
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: staging_k8s
+      - insert:
+          identifier: Prod
+          stages:
+          - stage:
+              name: Prod Blue Green
+              identifier: Prod_Blue_Green
+              template:
+                templateRef: account.helm_blue_green_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_helm_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: prod
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: prod_k8s

@@ -1,0 +1,58 @@
+# Consumer pipeline stored in the application repo. Its shape belongs to the template;
+# developers change deployment targets through input_sets/, not this file.
+pipeline:
+  name: My Helm Service - Variable Strategy
+  identifier: helm_variable_strategy
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  template:
+    templateRef: account.helm_variable_delivery
+    versionLabel: 0.1.0
+    templateInputs:
+      variables:
+      - name: devDeploymentStrategy
+        type: String
+        value: rolling
+      - name: stagingDeploymentStrategy
+        type: String
+        value: canary
+      - name: prodDeploymentStrategy
+        type: String
+        value: blue-green
+      stages:
+      - stage:
+          identifier: Dev
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                service:
+                  serviceRef: <+input>
+                  serviceInputs: <+input>
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>
+      - stage:
+          identifier: Staging
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>
+      - stage:
+          identifier: Prod
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>

@@ -1,0 +1,63 @@
+# Consumer pipeline stored in the application repo. Its shape belongs to the template;
+# developers change deployment targets through input_sets/, not this file.
+pipeline:
+  name: My ECS Service - Rolling
+  identifier: ecs_rolling
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  template:
+    templateRef: account.ecs_rolling_delivery
+    versionLabel: 0.1.0
+    templateInputs:
+      stages:
+      - stage:
+          identifier: Dev
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                service:
+                  serviceRef: <+input>
+                  serviceInputs: <+input>
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>
+      - stage:
+          identifier: Staging
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>
+      - stage:
+          identifier: Prod
+          template:
+            templateInputs:
+              type: Deployment
+              spec:
+                environment:
+                  environmentRef: <+input>
+                  environmentInputs: <+input>
+                  serviceOverrideInputs: <+input>
+                  infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>

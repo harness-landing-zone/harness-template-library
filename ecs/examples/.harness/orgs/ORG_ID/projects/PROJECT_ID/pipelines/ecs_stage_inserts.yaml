@@ -1,0 +1,91 @@
+# Consumer pipeline stored in the application repo. With stage inserts the application team
+# owns the content of each slot (Dev, Staging, Prod); approvals between slots belong to the template.
+# Each slot repeats the service: Harness does not propagate it between insert blocks.
+pipeline:
+  name: My ECS Service - Stage Inserts
+  identifier: ecs_stage_inserts
+  orgIdentifier: ORG_ID
+  projectIdentifier: PROJECT_ID
+  template:
+    templateRef: account.ecs_stage_insert_delivery
+    versionLabel: 0.1.0
+    templateInputs:
+      stages:
+      - insert:
+          identifier: Dev
+          stages:
+          - stage:
+              name: Dev Rolling
+              identifier: Dev_Rolling
+              template:
+                templateRef: account.ecs_rolling_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_ecs_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: dev
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: dev_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
+      - insert:
+          identifier: Staging
+          stages:
+          - stage:
+              name: Staging Canary
+              identifier: Staging_Canary
+              template:
+                templateRef: account.ecs_canary_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_ecs_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: staging
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: staging_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
+      - insert:
+          identifier: Prod
+          stages:
+          - stage:
+              name: Prod Blue Green
+              identifier: Prod_Blue_Green
+              template:
+                templateRef: account.ecs_blue_green_stage
+                versionLabel: 0.1.0
+                templateInputs:
+                  type: Deployment
+                  spec:
+                    service:
+                      serviceRef: my_ecs_service
+                      serviceInputs: <+input>
+                    environment:
+                      environmentRef: prod
+                      environmentInputs: <+input>
+                      serviceOverrideInputs: <+input>
+                      infrastructureDefinitions:
+                      - identifier: prod_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
