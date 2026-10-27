@@ -43,7 +43,7 @@ The examples use the Harness Git Experience layout (`.harness/orgs/<org>/project
 
 In the fixed and variable models, the pipeline file is little more than a template reference. The team's day-to-day changes go into the input set. The artifact tag is left as a runtime input, so a trigger or the person running the pipeline supplies it.
 
-Blue/Green routing (load balancer, live and candidate listener and rule ARNs) is not an input. The stage templates read it as service variables, `<+serviceVariables.loadBalancer>`, `prodListenerArn`, `prodListenerRuleArn`, `stageListenerArn` and `stageListenerRuleArn`, from a service-specific environment override. See the [Prod override example](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/overrides/prod/services/my_ecs_service/overrides.yaml); add one per environment that runs Blue/Green.
+Blue/Green routing (load balancer, live and candidate listener and rule ARNs) is not an input. The stage templates read it as service variables, `<+serviceVariables.loadBalancer>`, `prodListenerArn`, `prodListenerRuleArn`, `candidateListenerArn` and `candidateListenerRuleArn`, from a service-specific environment override. See the [Prod override example](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/overrides/prod/services/my_ecs_service/overrides.yaml); add one per environment that runs Blue/Green. The Blue/Green example also runs a candidate health check in the test slot, which reads `<+serviceVariables.candidateHealthUrl>` from the same override.
 
 ## What every pipeline enforces
 
@@ -56,12 +56,13 @@ Blue/Green routing (load balancer, live and candidate listener and rule ARNs) is
 
 | Strategy | Forward flow | Verify mode |
 | --- | --- | --- |
-| Rolling | Rolling deploy → Verify | `Rolling` |
-| Canary | Canary deploy → Verify → delete canary → full Rolling deploy | `Canary` |
-| Blue/Green | Create candidate → Verify → swap target groups | `Bluegreen` |
+| Rolling | Rolling deploy → Verify → developer tests | `Rolling` |
+| Canary | Canary deploy → Verify → developer tests → delete canary → full Rolling deploy | `Canary` |
+| Blue/Green | Create candidate → Verify → developer tests → swap target groups | `Bluegreen` |
 
 - **Verify:** uses the Default monitored service, HIGH sensitivity, a 15-minute analysis window and a 2-hour timeout.
 - **Failure:** any failure rolls back the stage. No step can be ignored or marked as successful.
+- **Developer tests:** every stage has an optional `Developer_Functional_Test` step insert after Verify. The team adds its tests in the consumer pipeline file; an empty slot is skipped, and a failing test rolls the stage back before traffic moves. See [Developer functional tests](docs/choosing-a-template.md#developer-functional-tests).
 - **Canary:** this is Harness native ECS Canary, a temporary canary service followed by a Rolling promotion. It is not weighted traffic shifting.
 - **Blue/Green:** the swap scales the old service to zero but keeps its definition, so rollback still works.
 
@@ -70,6 +71,7 @@ Blue/Green routing (load balancer, live and candidate listener and rule ARNs) is
 1. **Register the templates.** Register the stage templates first, then the pipeline templates. The examples assume account scope (`account.` prefix); use `org.` for org scope. Store the templates as Remote (Git) templates in this repository.
 2. **Set the approver group.** Replace `account.<APPROVED_RELEASE_GROUP>` in [pipelines/](pipelines/) with your release approver user group.
 3. **Prepare monitoring.** For each service, configure a monitored service and health source that match the environment. Verify can be skipped when no monitoring is configured, so a green stage alone does not prove analysis ran.
-4. **Prepare AWS.** Compatible task and service definitions, load balancer listeners and rules (Blue/Green), and IAM must already exist. The templates do not create them.
-5. **Add routing overrides.** For each service and environment that runs Blue/Green, add the five routing variables as a service-specific environment override.
-6. **Apply governance.** Put the RBAC roles and the [policies](policies/) in place before giving teams access, and especially before enabling stage inserts.
+4. **Enable feature flags.** Ask Harness Support for `PIE_FLEXIBLE_TEMPLATES` and `PIE_FLEXIBLE_TEMPLATES_PHASE2`. Every stage template's test slot is an insert block, which needs them.
+5. **Prepare AWS.** Compatible task and service definitions, load balancer listeners and rules (Blue/Green), and IAM must already exist. The templates do not create them.
+6. **Add routing overrides.** For each service and environment that runs Blue/Green, add the five routing variables as a service-specific environment override. If an IaCM workspace in the same project manages the load balancer, the values can reference its outputs, for example `<+workspace.<workspace_id>.prod_listener_arn>`.
+7. **Apply governance.** Put the RBAC roles and the [policies](policies/) in place before giving teams access, and especially before enabling stage inserts.

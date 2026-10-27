@@ -47,8 +47,8 @@ template:
               loadBalancer: <+serviceVariables.loadBalancer>
               prodListener: <+serviceVariables.prodListenerArn>
               prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
-              stageListener: <+serviceVariables.stageListenerArn>
-              stageListenerRuleArn: <+serviceVariables.stageListenerRuleArn>
+              stageListener: <+serviceVariables.candidateListenerArn>
+              stageListenerRuleArn: <+serviceVariables.candidateListenerRuleArn>
               isTrafficShift: false
               sameAsAlreadyRunningInstances: false
             when:
@@ -105,6 +105,10 @@ template:
             when:
               stageStatus: Success
               condition: <+stage.variables.deploymentStrategy> == "blue-green"
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         - step:
             name: Delete canary
             identifier: Canary_Delete

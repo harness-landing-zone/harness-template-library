@@ -28,8 +28,8 @@ template:
               loadBalancer: <+serviceVariables.loadBalancer>
               prodListener: <+serviceVariables.prodListenerArn>
               prodListenerRuleArn: <+serviceVariables.prodListenerRuleArn>
-              stageListener: <+serviceVariables.stageListenerArn>
-              stageListenerRuleArn: <+serviceVariables.stageListenerRuleArn>
+              stageListener: <+serviceVariables.candidateListenerArn>
+              stageListenerRuleArn: <+serviceVariables.candidateListenerRuleArn>
               isTrafficShift: false
               sameAsAlreadyRunningInstances: false
         - step:
@@ -46,6 +46,10 @@ template:
               spec:
                 sensitivity: HIGH
                 duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         - step:
             name: Swap Blue Green target groups
             identifier: BlueGreen_Swap

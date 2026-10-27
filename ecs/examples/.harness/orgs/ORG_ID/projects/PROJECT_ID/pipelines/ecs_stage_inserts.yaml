@@ -32,6 +32,11 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: dev_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
       - insert:
           identifier: Staging
           stages:
@@ -53,6 +58,11 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: staging_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
       - insert:
           identifier: Prod
           stages:
@@ -74,3 +84,8 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: prod_ecs
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>

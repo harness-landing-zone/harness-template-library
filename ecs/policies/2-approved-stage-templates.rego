@@ -48,9 +48,10 @@ deny[msg] {
 matches_approved_shape(s) {
   shape := approved_shapes[_]
   s.spec.deploymentType == shape.deploymentType
-  steps := s.spec.execution.steps
-  types := [t | t := steps[_].step.type]
-  count(types) == count(steps)
+  # The Developer_Functional_Test insert is not part of the shape; policy 8 checks its content.
+  nodes := [n | n := s.spec.execution.steps[_]; not n.insert]
+  types := [t | t := nodes[_].step.type]
+  count(types) == count(nodes)
   types == shape.steps
 }
 

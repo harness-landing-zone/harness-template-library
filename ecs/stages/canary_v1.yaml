@@ -39,6 +39,10 @@ template:
               spec:
                 sensitivity: HIGH
                 duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         - step:
             name: Delete canary
             identifier: Canary_Delete

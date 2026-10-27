@@ -24,6 +24,22 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps:
+                      - step:
+                          name: Candidate health check
+                          identifier: Candidate_Health_Check
+                          type: Http
+                          timeout: 2m
+                          spec:
+                            url: <+serviceVariables.candidateHealthUrl>
+                            method: GET
+                            headers: []
+                            assertion: <+httpResponseCode> == 200
+                            outputVariables: []
       - stage:
           identifier: Staging
           template:
@@ -35,6 +51,22 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps:
+                      - step:
+                          name: Candidate health check
+                          identifier: Candidate_Health_Check
+                          type: Http
+                          timeout: 2m
+                          spec:
+                            url: <+serviceVariables.candidateHealthUrl>
+                            method: GET
+                            headers: []
+                            assertion: <+httpResponseCode> == 200
+                            outputVariables: []
       - stage:
           identifier: Prod
           template:
@@ -46,3 +78,19 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps:
+                      - step:
+                          name: Candidate health check
+                          identifier: Candidate_Health_Check
+                          type: Http
+                          timeout: 2m
+                          spec:
+                            url: <+serviceVariables.candidateHealthUrl>
+                            method: GET
+                            headers: []
+                            assertion: <+httpResponseCode> == 200
+                            outputVariables: []

@@ -1,7 +1,9 @@
 # Service-specific environment override (Overrides V2) supplying the Blue/Green routing
 # that ecs_blue_green_stage and ecs_variable_strategy_stage read as <+serviceVariables.*>.
 # Owned by whoever owns the load balancer, ideally written by infrastructure automation.
-# Add one file per environment that runs Blue/Green.
+# Add one file per environment that runs Blue/Green. If an IaCM workspace in the same project
+# manages the load balancer, a value can reference its output instead, for example
+# <+workspace.ecs_app1_prod.prod_listener_arn>.
 overrides:
   identifier: prod_my_ecs_service
   orgIdentifier: ORG_ID
@@ -20,9 +22,13 @@ overrides:
     - name: prodListenerRuleArn
       type: String
       value: <PROD_LIVE_LISTENER_RULE_ARN>
-    - name: stageListenerArn
+    - name: candidateListenerArn
       type: String
       value: <PROD_CANDIDATE_LISTENER_ARN>
-    - name: stageListenerRuleArn
+    - name: candidateListenerRuleArn
       type: String
       value: <PROD_CANDIDATE_LISTENER_RULE_ARN>
+    # Used by the example's developer test (candidate health check before the swap).
+    - name: candidateHealthUrl
+      type: String
+      value: <PROD_CANDIDATE_HEALTH_URL>
