@@ -30,7 +30,7 @@ template:
               skipDeploymentIfSameManifest: false
         - step:
             name: Verify Bluegreen
-            identifier: Verify_Bluegreen
+            identifier: Verify_BlueGreen
             type: Verify
             timeout: 2h
             spec:
@@ -42,6 +42,10 @@ template:
               spec:
                 sensitivity: HIGH
                 duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         - step:
             name: Swap primary with stage service
             identifier: BlueGreen_Swap

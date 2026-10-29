@@ -30,3 +30,7 @@ overrides:
     - name: ingressHost
       type: String
       value: <PROD_HOSTNAME>
+    # Read by the Blue Green test slot. The delegate reaches the candidate through the -stage Service Harness creates.
+    - name: candidateHealthUrl
+      type: String
+      value: http://<STAGE_SERVICE>.<NAMESPACE>.svc.cluster.local/<HEALTH_PATH>

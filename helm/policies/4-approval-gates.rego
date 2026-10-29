@@ -4,7 +4,8 @@
 # policy 1 requires an approved parent and version, and policy 7 protects the parent's approvals on save.
 package pipeline
 
-approval_group := "account.<APPROVED_RELEASE_GROUP>"  # set to your approver group
+approval_group := "account.helm_release_approvers"  # release approver group
+approver_expression := "<+pipeline.variables.release_approver_group>"
 
 deny[msg] {
   not input.pipeline.template
@@ -20,5 +21,18 @@ gate_ok(id) {
   step.type == "HarnessApproval"
   step.spec.approvers.disallowPipelineExecutor == true
   step.spec.approvers.minimumCount >= 1
-  step.spec.approvers.userGroups[_] == approval_group
+  approvers_ok(step.spec.approvers.userGroups)
+}
+
+# The Helm templates name the group once, in the fixed variable release_approver_group.
+approvers_ok(groups) {
+  groups == approver_expression
+  v := input.pipeline.variables[_]
+  v.name == "release_approver_group"
+  v.value == approval_group
+}
+
+# A literal group list, as in the ECS templates.
+approvers_ok(groups) {
+  groups[_] == approval_group
 }

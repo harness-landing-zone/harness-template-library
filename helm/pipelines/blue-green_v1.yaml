@@ -5,12 +5,17 @@ template:
   type: Pipeline
   description: Helm chart promoted Dev → Staging → Prod with one fixed strategy and approvals between environments.
   spec:
+    variables:
+    - name: release_approver_group
+      type: String
+      description: Account user group that approves promotion to Staging and Prod. Fixed in the template, never a runtime input.
+      value: account.helm_release_approvers
     stages:
     - stage:
         name: Dev
         identifier: Dev
         template:
-          templateRef: helm_blue_green_stage
+          templateRef: account.helm_blue_green_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -23,6 +28,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
     - stage:
         name: Approve Staging
         identifier: Approve_Staging
@@ -42,8 +52,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
@@ -58,7 +67,7 @@ template:
         name: Staging
         identifier: Staging
         template:
-          templateRef: helm_blue_green_stage
+          templateRef: account.helm_blue_green_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -71,6 +80,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
         when:
           pipelineStatus: Success
           condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==
@@ -94,8 +108,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
@@ -110,7 +123,7 @@ template:
         name: Prod
         identifier: Prod
         template:
-          templateRef: helm_blue_green_stage
+          templateRef: account.helm_blue_green_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -123,6 +136,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
         when:
           pipelineStatus: Success
           condition: <+pipeline.stages.Dev.status> == "SUCCEEDED" && <+pipeline.stages.Approve_Staging.status> ==

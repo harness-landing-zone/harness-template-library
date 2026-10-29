@@ -24,6 +24,11 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>
       - stage:
           identifier: Staging
           template:
@@ -35,6 +40,11 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>
       - stage:
           identifier: Prod
           template:
@@ -46,3 +56,8 @@ pipeline:
                   environmentInputs: <+input>
                   serviceOverrideInputs: <+input>
                   infrastructureDefinitions: <+input>
+                execution:
+                  steps:
+                  - insert:
+                      identifier: Developer_Functional_Test
+                      steps: <+input>

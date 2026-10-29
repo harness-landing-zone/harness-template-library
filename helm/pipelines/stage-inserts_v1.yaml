@@ -6,6 +6,11 @@ template:
   description: Approvals fixed between Dev, Staging and Prod insert slots that the application team fills with approved Helm stage templates.
   spec:
     allowStageExecutions: false
+    variables:
+    - name: release_approver_group
+      type: String
+      description: Account user group that approves promotion to Staging and Prod. Fixed in the template, never a runtime input.
+      value: account.helm_release_approvers
     stages:
     - insert:
         name: Dev
@@ -30,8 +35,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
@@ -65,8 +69,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:

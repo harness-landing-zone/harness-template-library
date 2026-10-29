@@ -41,7 +41,7 @@ The trade-off is **Helm hooks**. Harness's guidance for the Kubernetes path is t
 | What the team changes | Input set | Input set; strategy values through a reviewed PR | The pipeline file: the whole content of each slot |
 | Same release (chart version) promoted across environments | Yes | Yes | Not guaranteed (see cons) |
 | Developer Harness permission | Execute + input sets | Execute + input sets | Pipeline Create/Edit as well |
-| Extra feature flags | None | None | `PIE_FLEXIBLE_TEMPLATES`, `PIE_FLEXIBLE_TEMPLATES_PHASE2` |
+| Feature flags | `PIE_FLEXIBLE_TEMPLATES`, `PIE_FLEXIBLE_TEMPLATES_PHASE2` (for the [developer test slot](#developer-functional-tests)) | Same | Same |
 | Governance effort | Low | Low | High |
 | Use for | Most services | A different strategy in Prod | A reviewed need to add own stages |
 
@@ -53,7 +53,7 @@ The consumer pipeline is a template reference plus runtime inputs ([example](../
 
 **Pros**
 
-- **Nothing to change but inputs.** No steps, stages, failure strategies or conditions are exposed. The templates define no `allowedOverrides`, which "means nothing can be overridden" ([template overrides](https://developer.harness.io/docs/platform/templates/template-overrides)).
+- **Nothing to change but inputs and test steps.** Apart from the [developer test slot](#developer-functional-tests), no steps, stages, failure strategies or conditions are exposed. The templates define no `allowedOverrides`, which "means nothing can be overridden" ([template overrides](https://developer.harness.io/docs/platform/templates/template-overrides)).
 - **One release promoted.** The service and chart version are chosen once in Dev; Staging and Prod reuse them through `useFromStage`.
 - **Simplest to run and approve.** It has the smallest graph, the easiest executions to read and the clearest approvals.
 - **Least access.** Developers need no pipeline edit permission.
@@ -98,11 +98,32 @@ The parent fixes the approvals and their order. Each environment is an `insert` 
 - **Release propagation is unproven.** Harness documents that service, environment and infrastructure propagate only inside one insert block. A sandbox test of the ECS library points the other way: Harness accepted a Staging or Prod slot with `useFromStage` pointing at the stage in the Dev slot, stopped asking for the service there, and kept `useFromStage` in the resolved YAML. That is authoring evidence only, against the documented limitation, and it has not been tested for Helm. Until a Dev → Staging run shows the Dev chart version deployed in Staging, treat each slot as selecting its own service. The chart version is a runtime input of the service, and developers own the slots, so nothing stops a slot from deploying a different chart version than the one tested in Dev.
 - **Behind feature flags.** Inserts need feature flags, and recent release notes contain several insert-block fixes.
 
-**Enforce policies 1–6 before enabling stage inserts for any team.**
+**Enforce policies 1–6 and 8 before enabling stage inserts for any team.**
+
+## Developer functional tests
+
+Every stage template has one step insert, `Developer_Functional_Test`, where the team adds its own tests ([insert blocks](https://developer.harness.io/docs/platform/templates/inject-step-stage-templates)). It is the same slot as in the ECS library. It sits after Verify and before anything that is hard to undo:
+
+| Strategy | Forward flow |
+| --- | --- |
+| Rolling | Rolling deployment → Verify → **developer tests** |
+| Canary | Canary deployment → Verify → **developer tests** → Canary Delete → Primary rolling deployment |
+| Blue Green | Stage deployment → Verify → **developer tests** → swap primary and stage services |
+
+- **Optional.** An empty slot runs nothing, and the stage carries on. To leave it empty, keep `steps: <+input>` in the pipeline and supply nothing at run time; in the ECS sandbox, Harness rejected `steps: []` when the pipeline was saved ("there must be a minimum of 1 items"). The Harness docs don't cover this case.
+- **A failing test rolls back the stage,** like any other failure. For Blue Green and Canary that happens before live traffic moves.
+- **What to test:** Blue Green tests reach the candidate through the `-stage` Service Harness creates, for example through a `candidateHealthUrl` service variable set by the environment's override, such as `http://<stage service>.<namespace>.svc.cluster.local/<path>`. The test step runs on the delegate, so the delegate must reach that address ([example](../examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/pipelines/helm_blue_green.yaml), [override](../examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/overrides/prod/services/my_helm_service/overrides.yaml)).
+- **Where the tests live:** in the consumer pipeline file, under each stage's `templateInputs`, changed by PR and reviewed by code owners. Harness requires pipeline create/edit to supply insert content as a runtime input ([insert RBAC](https://developer.harness.io/docs/platform/templates/inject-step-stage-templates#rbac-required)), so keeping tests in Git lets developers stay without pipeline edit in Harness.
+- **Limits:**
+  - **Tests only:** policy 8 rejects step types starting with `Ecs`, `K8s`, `Helm`, `Terraform`, `Terragrunt` or `IACM`. Other families, such as CloudFormation, ARM, Lambda, ASG or SSH `Command`, aren't covered unless you add them to its list.
+  - **No failure masking:** policy 5 rejects `Ignore`, `MarkAsSuccess` and `ManualIntervention`.
+  - **No nesting:** Harness doesn't allow nested inserts or a stage insert in parallel with other stages ([limitations](https://developer.harness.io/docs/platform/templates/inject-step-stage-templates#limitations)).
+- **Feature flags:** the slot needs `PIE_FLEXIBLE_TEMPLATES` and `PIE_FLEXIBLE_TEMPLATES_PHASE2` for every model, not only stage inserts.
+- **Not yet tested for Helm.** The slot is copied from the ECS library and has not been saved or run in Harness for Helm.
 
 ## Operating at scale
 
-- **Scope.** Register the golden templates at **account** scope, so every org and project references the same version (`account.<identifier>`). Use **org** scope only for business-unit variants, and keep governed templates out of project scope. Account- and org-scoped templates cannot fix a service or environment; those stay inputs, which these templates already do ([manage templates](https://developer.harness.io/docs/platform/templates/templates-best-practices#manage-templates)).
+- **Scope.** Register the golden templates at **account** scope, so every org and project references the same version (`account.<identifier>`). The pipeline templates reference their stage templates the same way (`account.helm_rolling_stage`). Use **org** scope only for business-unit variants, and keep governed templates out of project scope. Account- and org-scoped templates cannot fix a service or environment; those stay inputs, which these templates already do ([manage templates](https://developer.harness.io/docs/platform/templates/templates-best-practices#manage-templates)).
 - **Ownership.** One platform team owns this library, with a named owner per template. Changes arrive as PRs against the library, are reviewed by the owners, and ship as a new version label.
 - **Version lifecycle.** Consumers pin a version label. Promote teams to a new version deliberately rather than with "Always use Stable", which pushes every change to every pipeline at once. Before retiring a version, check the [template usage dashboard](https://developer.harness.io/docs/platform/templates/view-template-usage-dashboard) for pipelines still on it.
 - **Fewer inputs through overrides.** Values that depend only on where a service is deployed belong in overrides rather than runtime inputs ([input sets at scale](https://developer.harness.io/docs/continuous-delivery/cd-onboarding/new-user/manage-inputsets-at-scale)). For Helm these are chart values, not step inputs. A service-specific environment override adds a values file for that environment and service variables ([overrides](https://developer.harness.io/docs/continuous-delivery/x-platform-cd-features/overrides-v2), [example](../examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/overrides/prod/services/my_helm_service/overrides.yaml)). The values file reads them as `<+serviceVariables.*>`, because values files can use Harness expressions ([deploy Helm charts](https://developer.harness.io/docs/continuous-delivery/deploy-srv-diff-platforms/helm/deploy-helm-charts), [example](../examples/deploy/values/prod.yaml)). Override priority is service & infrastructure, then infrastructure, then service, then global environment. Namespaces live in the infrastructure definition, not in values.
@@ -158,6 +179,7 @@ RBAC on templates protects the template itself, but not the consumer pipeline. A
 | Change the governed shape (steps, rollback, failure strategy, approvals, stage-only runs) | Only by unlinking | Only by unlinking | Policies 1, 2, 4 and 5 |
 | Arbitrary slot content | n/a | Possible | Policies 2, 3, 5, 6 |
 | Remove or weaken an approval | Only by unlinking | Only by unlinking | Policies 4 and 7 |
+| Deploy, swap or change infrastructure from the test slot | Through the pipeline file | Same | Policy 8; code owners on pipeline files |
 | Change Prod chart values | Through override and values files | Same | Code owners on overrides and values; RBAC on service edit |
 | Deploy outside the approved namespace | Through chart templates or values | Same | Code owners on charts, values and override files; namespace validation setting only once tested (see below) |
 | Approve one's own release | Blocked for the person who ran it | Same | Approver group excludes change authors |
@@ -173,7 +195,7 @@ Permission identifiers come from the [permissions reference](https://developer.h
 | --- | --- | --- |
 | **Template owner** (platform; ideally a service account driven by library CI) | `core_template_view/create/edit/delete/access` | Pipeline execute in application projects |
 | **Policy admin** (security) | `core_governancePolicy_*`, `core_governancePolicySets_*` | Template edit |
-| **Release approver** (the group that replaces `<APPROVED_RELEASE_GROUP>`) | Pipeline view; membership of the approver user group | Pipeline or template edit; developers who author changes |
+| **Release approver** (`helm_release_approvers`, the group named by each pipeline template's `release_approver_group` variable) | Pipeline view; membership of the approver user group | Pipeline or template edit; developers who author changes |
 | **Service owner** (team lead or platform; writes services and service-specific overrides) | `core_service_edit`, environment view | Pipeline edit or execute |
 | **Pipeline creator** (service account used by IDP or Terraform) | `core_pipeline_create/edit`, `core_template_access` | Execute, template edit |
 | **Developer, fixed/variable** | `core_pipeline_view/execute`, `core_inputset_view/edit`, `core_template_view/access`; `view` + `access` on services, environments, connectors and secrets | `core_pipeline_create/edit/delete`; `core_template_copy/create/edit/delete`; edit on services, environments, connectors and secrets |
@@ -190,14 +212,15 @@ The policies are in [policies/](../policies/), one self-contained file each, rea
 | # | Policy | Entity / events | Models |
 | --- | --- | --- | --- |
 | 1 | [Approved pipeline template, if linked; stage-only runs disabled](../policies/1-approved-pipeline-template.rego) | Pipeline: On Save, On Run | All |
-| 2 | [Approved stage templates, if linked; every Deployment stage matches an approved Helm stage shape](../policies/2-approved-stage-templates.rego) | Pipeline: On Save, On Run | All |
+| 2 | [Approved stage templates, if linked; every Deployment stage matches an approved Helm stage shape, ignoring the test slot](../policies/2-approved-stage-templates.rego) | Pipeline: On Save, On Run | All |
 | 3 | [Exactly one deployment stage per insert slot; no Custom, CI or Approval stages](../policies/3-insert-slot-contents.rego) | Pipeline: On Save, On Run | Inserts |
 | 4 | [Approval gates intact in the expanded payload](../policies/4-approval-gates.rego) | Pipeline: On Save, On Run | All |
 | 5 | [No Ignore / MarkAsSuccess / ManualIntervention](../policies/5-no-failure-masking.rego) | Pipeline: On Save, On Run | All |
 | 6 | [No production environment before Prod](../policies/6-environment-per-slot.rego) | Pipeline: On Run | All |
 | 7 | [Template guardrails](../policies/7-template-guardrails.rego) | Template: On Save | All |
+| 8 | [`Developer_Functional_Test` rejects `Ecs*`, `K8s*`, `Helm*`, `Terraform*`, `Terragrunt*` and `IACM*` steps](../policies/8-developer-test-insert.rego) | Pipeline: On Save, On Run | All |
 
-**Using the ECS library as well?** Policies 1 and 2 deny anything not in their approved lists, so an ECS copy would reject Helm pipelines and the reverse. Load one copy of each, with the ECS and Helm identifiers merged into `approved_parents` and `approved_stage_templates`, and the ECS stage shapes added to `approved_shapes`. Policies 3–7 name no library-specific templates and are the same in both libraries; load one copy of each.
+**Using the ECS library as well?** Policies 1 and 2 deny anything not in their approved lists, so an ECS copy would reject Helm pipelines and the reverse. Load one copy of each, with the ECS and Helm identifiers merged into `approved_parents` and `approved_stage_templates`, and the ECS stage shapes added to `approved_shapes`. Policies 3–8 name no library-specific templates and are the same in both libraries; load one copy of each.
 
 **Shape, not just reference.** Policy 2 records each approved stage template as an ordered list of forward step types. When a stage template changes its steps in a new version, add the new shape in the same PR.
 
@@ -206,7 +229,7 @@ The policies are in [policies/](../policies/), one self-contained file each, rea
 - **What OPA sees.** OPA receives an expanded pipeline YAML, and expressions are not resolved. Harness's resolved pipeline YAML drops `pipeline.template` and each stage's `template` block. It keeps the stages, steps and `allowStageExecutions` from the templates, and keeps insert slots as `pipeline.stages[].insert.stages[].stage`. The Harness samples read `stage.template.templateRef`, so the OPA payload may still carry references. Policies 1 and 2 therefore handle both shapes: a template reference is checked when it is present, and its absence does not deny. In the expanded shape, each Deployment stage must match an approved stage template's deployment type and ordered forward steps, keep its rollback steps, and use only `StageRollback`.
 - **Policies 3, 4 and 6 handle both shapes too.**
   - **Policy 3** reads slots from either location. A slot stage passes if it has a `template` block (linked; policy 2 checks the ref) or is a Deployment stage (expanded; policy 2 checks the shape).
-  - **Policy 4** checks the approval stages only in the expanded payload. In a linked payload the approvals live in the parent, which policy 1 pins to an approved version and policy 7 protects on save.
+  - **Policy 4** checks the approval stages only in the expanded payload. In a linked payload the approvals live in the parent, which policy 1 pins to an approved version and policy 7 protects on save. The Helm approvals name their group as `<+pipeline.variables.release_approver_group>`, so policy 4 accepts that expression when the pipeline's `release_approver_group` variable holds the approver group, as well as a literal group list (the ECS form). Policy 7 rejects a template whose `release_approver_group` is a runtime input or expression.
   - **Policy 6** reads the environment from the stage (expanded) or from the stage's template inputs (linked). A runtime input still unresolved in the payload (`<+input>`) matches no production identifier and passes, so confirm On Run payloads carry the chosen environment.
 - **If the payload carries both.** If testing shows the OPA payload has `pipeline.template` alongside the expanded stages, re-add a strict "must be linked" rule to policy 1. Then OPA would catch unlinking as well. Policy 4 would need its `not input.pipeline.template` condition dropped, because the approvals would then be visible.
 - **Test in Warn mode first.** Test each policy in the policy editor against a real pipeline of each model, adjust the paths, and run in Warn mode before switching to Error. The policies have not yet been evaluated against a Harness payload.
@@ -226,6 +249,7 @@ The policies are in [policies/](../policies/), one self-contained file each, rea
    - leaving a slot empty
    - adding a shell stage to Prod
    - adding an `Ignore` failure strategy
+   - adding a deployment step to the test slot
    - targeting Prod from Dev
    - approving their own run
    - deploying a chart that sets a different namespace
@@ -233,7 +257,7 @@ The policies are in [policies/](../policies/), one self-contained file each, rea
 
 ## Validation still required
 
-All nine templates have been saved in a Harness sandbox (project scope, inline), and Harness reported each one valid. A consumer pipeline for each model also saved and expanded. Harness's resolution shows the Kubernetes steps, rollback guards and stage conditions as written, and `useFromStage: Dev` in Staging and Prod. The runtime inputs Harness derives match the example input sets: Staging and Prod ask only for environment and infrastructure, while each insert slot asks for its own service. The `ERRORED` clause in the rollback guards was added after that save, so the sandbox copies of the Canary, Blue Green and variable strategy stages are one change behind this repo. No service, override, deployment, CV analysis or approval has been executed. Before production use:
+All nine templates have been saved in a Harness sandbox (project scope, inline), and Harness reported each one valid. A consumer pipeline for each model also saved and expanded. Harness's resolution shows the Kubernetes steps, rollback guards and stage conditions as written, and `useFromStage: Dev` in Staging and Prod. The runtime inputs Harness derives match the example input sets: Staging and Prod ask only for environment and infrastructure, while each insert slot asks for its own service. The `ERRORED` clause in the rollback guards was added after that save, so the sandbox copies of the Canary, Blue Green and variable strategy stages are one change behind this repo. Since then the stage references gained the `account.` prefix, the approvers moved to the `release_approver_group` variable, and the Blue Green Verify step became `Verify_BlueGreen`. Those three changes are registered at account scope (inline, `0.1.0`), and Harness reported each template valid. The developer test slot came later and has not been saved in Harness. No service, override, deployment, CV analysis or approval has been executed. Before production use:
 
 - **Happy path.** Run a successful deployment of each strategy and confirm CV analysis actually ran.
 - **Failure paths.** Force a deployment failure and a CV failure in each strategy, then reject an approval and let one time out. Confirm rollback, and confirm no later environment deploys. In particular:

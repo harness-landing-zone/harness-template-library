@@ -20,3 +20,11 @@ deny[msg] {
   step.spec.approvers.disallowPipelineExecutor != true
   msg := sprintf("Approval '%s' must disallow the person who ran the pipeline", [step.identifier])
 }
+
+deny[msg] {
+  input.template.type == "Pipeline"
+  v := input.template.spec.variables[_]
+  v.name == "release_approver_group"
+  contains(v.value, "<+")
+  msg := "release_approver_group must be a fixed group, not a runtime input or expression"
+}

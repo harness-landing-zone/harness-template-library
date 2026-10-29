@@ -41,6 +41,10 @@ template:
               spec:
                 sensitivity: HIGH
                 duration: 15m
+        - insert:
+            name: Developer Functional Test
+            identifier: Developer_Functional_Test
+            steps: <+input>
         rollbackSteps:
         - step:
             name: Rolling Rollback

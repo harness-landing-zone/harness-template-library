@@ -32,6 +32,11 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: dev_k8s
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
       - insert:
           identifier: Staging
           stages:
@@ -53,6 +58,11 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: staging_k8s
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>
       - insert:
           identifier: Prod
           stages:
@@ -74,3 +84,8 @@ pipeline:
                       serviceOverrideInputs: <+input>
                       infrastructureDefinitions:
                       - identifier: prod_k8s
+                    execution:
+                      steps:
+                      - insert:
+                          identifier: Developer_Functional_Test
+                          steps: <+input>

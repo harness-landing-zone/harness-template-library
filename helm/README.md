@@ -59,7 +59,7 @@ In the fixed and variable models, the pipeline file is little more than a templa
 
 ## What every pipeline enforces
 
-- **Approvals before Staging and Prod.** Each needs one approver from the release group, the person who ran the pipeline cannot approve, and a rejection or timeout aborts the run. Approvers are fixed in the template and are never runtime inputs.
+- **Approvals before Staging and Prod.** Each needs one approver from the release group, the person who ran the pipeline cannot approve, and a rejection or timeout aborts the run. Approvers are fixed in the template and are never runtime inputs: every approval reads the pipeline template's fixed variable `release_approver_group`.
 - **No stage-only runs.** Stage-only execution is disabled, so nobody can run Prod on its own.
 - **No later environment after a failure.** In the fixed and variable models, Staging and Prod run only if every earlier stage and approval succeeded.
 - **One release promoted across environments.** In the fixed and variable models, the service and chart version are chosen once in Dev; Staging and Prod reuse them (`useFromStage: Dev`).
@@ -68,11 +68,12 @@ In the fixed and variable models, the pipeline file is little more than a templa
 
 | Strategy | Forward flow | Verify mode | Rollback |
 | --- | --- | --- | --- |
-| Rolling | Rolling deployment → Verify | `Rolling` | Rolling Rollback |
-| Canary | Canary deployment (1 pod) → Verify → Canary Delete → Primary rolling deployment | `Canary` | Canary Delete; Rolling Rollback if the primary deployment started |
-| Blue Green | Stage deployment → Verify → swap primary and stage services | `Bluegreen` | Swap back if the forward swap started |
+| Rolling | Rolling deployment → Verify → developer tests | `Rolling` | Rolling Rollback |
+| Canary | Canary deployment (1 pod) → Verify → developer tests → Canary Delete → Primary rolling deployment | `Canary` | Canary Delete; Rolling Rollback if the primary deployment started |
+| Blue Green | Stage deployment → Verify → developer tests → swap primary and stage services | `Bluegreen` | Swap back if the forward swap started |
 
 - **Verify:** uses the Default monitored service, HIGH sensitivity, a 15-minute analysis window and a 2-hour timeout.
+- **Developer tests:** every stage has an optional `Developer_Functional_Test` step insert after Verify. The team adds its tests in the consumer pipeline file; an empty slot is skipped, and a failing test rolls the stage back before traffic moves. See [Developer functional tests](docs/choosing-a-template.md#developer-functional-tests).
 - **Failure:** any failure rolls back the stage. No step can be ignored or marked as successful.
 - **Canary:** this is Harness Kubernetes Canary: one extra canary pod next to the current release, verified, deleted, then a full rolling update. It is not weighted traffic shifting.
 - **Blue Green:** the previous colour keeps running after the swap, so rollback is a selector swap. Expect double capacity per service; the templates do not scale down the old colour, because doing so would slow rollback.
@@ -86,8 +87,8 @@ In the fixed and variable models, the pipeline file is little more than a templa
 
 ## Before first use
 
-1. **Register the templates.** Register the stage templates first, then the pipeline templates, at account scope (`account.` prefix) as Remote templates from this repository.
-2. **Set the approver group.** Replace `account.<APPROVED_RELEASE_GROUP>` in [pipelines/](pipelines/) and in [policies/4-approval-gates.rego](policies/4-approval-gates.rego) with your release approver user group.
+1. **Register the templates.** Register the stage templates first, then the pipeline templates, at account scope as Remote templates from this repository. The pipeline templates reference their stage templates as `account.helm_*_stage`, so the stage templates must exist at account scope first.
+2. **Set the approver group.** Approvals go to the account user group `helm_release_approvers`. Add its members, who must not be the people authoring the releases. To use another group, change it in two places: the `release_approver_group` variable of each pipeline template in [pipelines/](pipelines/) (one line per file), and `approval_group` in [policies/4-approval-gates.rego](policies/4-approval-gates.rego).
 3. **Prepare Kubernetes.** Create a Kubernetes connector and one infrastructure definition per environment with its namespace. Keep the default release name (`release-<+INFRA_KEY_SHORT_ID>`), which Harness uses to track the resources of each release. The templates do not create clusters, namespaces or connectors.
 4. **Prepare the service.** Use a Kubernetes service with a Helm chart manifest, like the [example](examples/.harness/orgs/ORG_ID/projects/PROJECT_ID/services/my_helm_service.yaml), and put per-environment values in overrides.
 5. **Prepare monitoring.** For each service, configure a monitored service and health source for each environment. Verify can be skipped when no monitoring is configured, so a green stage alone does not prove analysis ran.

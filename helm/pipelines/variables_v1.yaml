@@ -7,6 +7,10 @@ template:
   spec:
     allowStageExecutions: false
     variables:
+    - name: release_approver_group
+      type: String
+      description: Account user group that approves promotion to Staging and Prod. Fixed in the template, never a runtime input.
+      value: account.helm_release_approvers
     - name: devDeploymentStrategy
       type: String
       required: true
@@ -24,7 +28,7 @@ template:
         name: Dev
         identifier: Dev
         template:
-          templateRef: helm_variable_strategy_stage
+          templateRef: account.helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -37,6 +41,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
             variables:
             - name: deploymentStrategy
               type: String
@@ -60,8 +69,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
@@ -76,7 +84,7 @@ template:
         name: Staging
         identifier: Staging
         template:
-          templateRef: helm_variable_strategy_stage
+          templateRef: account.helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -89,6 +97,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
             variables:
             - name: deploymentStrategy
               type: String
@@ -116,8 +129,7 @@ template:
                   approvers:
                     minimumCount: 1
                     disallowPipelineExecutor: true
-                    userGroups:
-                    - account.<APPROVED_RELEASE_GROUP>
+                    userGroups: <+pipeline.variables.release_approver_group>
                   isAutoRejectEnabled: false
                   approverInputs: []
         when:
@@ -132,7 +144,7 @@ template:
         name: Prod
         identifier: Prod
         template:
-          templateRef: helm_variable_strategy_stage
+          templateRef: account.helm_variable_strategy_stage
           versionLabel: 0.1.0
           templateInputs:
             type: Deployment
@@ -145,6 +157,11 @@ template:
                 environmentInputs: <+input>
                 serviceOverrideInputs: <+input>
                 infrastructureDefinitions: <+input>
+              execution:
+                steps:
+                - insert:
+                    identifier: Developer_Functional_Test
+                    steps: <+input>
             variables:
             - name: deploymentStrategy
               type: String
